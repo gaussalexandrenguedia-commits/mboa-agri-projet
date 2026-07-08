@@ -1,0 +1,6 @@
+{
+  "name": "MBOA AGRI",
+  "description": "GCD4F 2026 — Team 59 — Cameroun. Compagnon agronomique de l'agriculteur camerounais avec diagnostic de feuilles par caméra de l'IA (Gemini), tutorat agricole personnalisé et historique de suivi.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
