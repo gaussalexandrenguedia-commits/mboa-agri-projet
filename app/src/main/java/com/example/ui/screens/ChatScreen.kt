@@ -9,9 +9,9 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Spa
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -69,7 +69,7 @@ fun ChatScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack, modifier = Modifier.testTag("chat_back_button")) {
-                        Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
@@ -226,7 +226,7 @@ fun ChatScreen(
                         )
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Send,
+                            imageVector = Icons.AutoMirrored.Filled.Send,
                             contentDescription = "Send",
                             tint = MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier.size(18.dp)

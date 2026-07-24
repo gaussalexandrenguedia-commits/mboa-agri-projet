@@ -9,6 +9,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -77,7 +80,8 @@ fun DashboardScreen(
     onNavigateToSettings: () -> Unit,
     onNavigateToDetail: (ScanResultEntity) -> Unit,
     onNavigateToChat: (ScanResultEntity) -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onNavigateToAlert: () -> Unit = {}
 ) {
     val scans by viewModel.allScans.collectAsState()
     val activeAlerts by viewModel.activeAlerts.collectAsState()
@@ -111,6 +115,30 @@ fun DashboardScreen(
                     }
                 },
                 actions = {
+                    BadgedBox(
+                        badge = {
+                            if (activeAlerts.isNotEmpty()) {
+                                Badge(
+                                    containerColor = Color(0xFFD32F2F),
+                                    contentColor = Color.White
+                                ) {
+                                    Text(text = "${activeAlerts.size}")
+                                }
+                            }
+                        },
+                        modifier = Modifier.padding(end = 4.dp)
+                    ) {
+                        IconButton(
+                            onClick = onNavigateToAlert,
+                            modifier = Modifier.testTag("dashboard_alert_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.NotificationsActive,
+                                contentDescription = "Alerts",
+                                tint = if (activeAlerts.isNotEmpty()) Color(0xFFD32F2F) else MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
                     IconButton(
                         onClick = onNavigateToSettings,
                         modifier = Modifier.testTag("dashboard_settings_button")
@@ -126,7 +154,7 @@ fun DashboardScreen(
                         modifier = Modifier.testTag("dashboard_logout_button")
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Logout,
+                            imageVector = Icons.AutoMirrored.Filled.Logout,
                             contentDescription = "Logout",
                             tint = Color.Red.copy(alpha = 0.8f)
                         )
@@ -217,10 +245,12 @@ fun DashboardScreen(
             if (activeAlerts.isNotEmpty()) {
                 item {
                     Card(
+                        onClick = onNavigateToAlert,
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 4.dp),
+                            .padding(vertical = 4.dp)
+                            .testTag("dashboard_alert_banner_card"),
                         colors = CardDefaults.cardColors(
                             containerColor = Color(0xFFD32F2F) // Bold warning Red
                         )
@@ -284,7 +314,7 @@ fun DashboardScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.TrendingUp,
+                                        imageVector = Icons.AutoMirrored.Filled.TrendingUp,
                                         contentDescription = null,
                                         tint = Color(0xFFFFB74D), // Light Orange
                                         modifier = Modifier.size(16.dp)
@@ -297,6 +327,20 @@ fun DashboardScreen(
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
+                            }
+
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = if (isEnglish) "Tap for map & prevention guide ➔" else "Ouvrir la carte & guide de prévention ➔",
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }
@@ -607,7 +651,7 @@ fun DashboardScreen(
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
-                                    imageVector = Icons.Default.MenuBook,
+                                    imageVector = Icons.AutoMirrored.Filled.MenuBook,
                                     contentDescription = "Guide Icon",
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(24.dp)

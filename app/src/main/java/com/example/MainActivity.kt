@@ -65,6 +65,7 @@ fun AppNavigation(
                 onNavigateToScan = { navController.navigate("scan") },
                 onNavigateToTutorat = { navController.navigate("tutorat") },
                 onNavigateToSettings = { navController.navigate("settings") },
+                onNavigateToAlert = { navController.navigate("alert") },
                 onNavigateToDetail = { scan ->
                     viewModel.currentScanDetail.value = scan
                     navController.navigate("detail")
@@ -79,6 +80,13 @@ fun AppNavigation(
                         popUpTo("dashboard") { inclusive = true }
                     }
                 }
+            )
+        }
+
+        composable("alert") {
+            AlertScreen(
+                viewModel = viewModel,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
