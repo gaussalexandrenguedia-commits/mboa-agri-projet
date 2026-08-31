@@ -11,6 +11,8 @@ android {
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
+    val backendBaseUrl = System.getenv("BACKEND_BASE_URL") ?: "http://10.0.2.2:8000/"
+    buildConfigField("String", "BACKEND_BASE_URL", "\"$backendBaseUrl\"")
     applicationId = "com.aistudio.mboaagri.tkplnz"
     minSdk = 24
     targetSdk = 36
@@ -58,12 +60,9 @@ android {
   testOptions { unitTests { isIncludeAndroidResources = true } }
 }
 
-// Configure the Secrets Gradle Plugin to use .env and .env.example files
-// to match the convention used in Web projects.
-secrets {
-  propertiesFileName = ".env"
-  defaultPropertiesFileName = ".env.example"
-}
+// Les secrets ne sont plus injectés dans l’APK : l’IA passe par le backend.
+// Cette configuration ne contient qu’une URL publique, jamais de clé API.
+
 
 // Some unused dependencies are commented out below instead of being removed.
 // This makes it easy to add them back in the future if needed.
@@ -90,6 +89,7 @@ dependencies {
   implementation(libs.androidx.navigation.compose)
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
+  implementation(libs.androidx.work.runtime.ktx)
   implementation(libs.coil.compose)
   implementation(libs.converter.moshi)
   // implementation(libs.firebase.ai)

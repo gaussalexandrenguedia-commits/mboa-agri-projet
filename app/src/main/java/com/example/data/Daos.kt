@@ -11,6 +11,12 @@ interface ScanResultDao {
     @Query("SELECT * FROM scan_results WHERE id = :id LIMIT 1")
     suspend fun getScanById(id: Long): ScanResultEntity?
 
+    @Query("SELECT * FROM scan_results WHERE syncStatus = :status ORDER BY timestamp ASC")
+    suspend fun getScansBySyncStatus(status: SyncStatus): List<ScanResultEntity>
+
+    @Query("UPDATE scan_results SET syncStatus = :status WHERE id = :id")
+    suspend fun updateSyncStatus(id: Long, status: SyncStatus)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertScan(scan: ScanResultEntity): Long
 
@@ -40,6 +46,9 @@ interface UserDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertUser(user: UserEntity): Long
+
+    @Query("UPDATE users SET commune = :commune, cultures = :cultures, langue = :langue, consentementAlertes = :consentementAlertes WHERE username = :username")
+    suspend fun updateProfile(username: String, commune: String, cultures: String, langue: String, consentementAlertes: Boolean)
 }
 
 @Dao

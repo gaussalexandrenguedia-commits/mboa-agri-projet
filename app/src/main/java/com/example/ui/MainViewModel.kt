@@ -7,6 +7,7 @@ import com.example.api.Content
 import com.example.api.Part
 import com.example.api.callGeminiApi
 import com.example.data.*
+import com.example.sync.enqueueScanSync
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
@@ -44,6 +45,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val userDao = db.userDao()
     private val forumPostDao = db.forumPostDao()
     private val forumCommentDao = db.forumCommentDao()
+
+    private suspend fun saveScan(scan: ScanResultEntity): Long {
+        val id = withContext(Dispatchers.IO) { scanResultDao.insertScan(scan) }
+        enqueueScanSync(getApplication())
+        return id
+    }
 
     val allScans: StateFlow<List<ScanResultEntity>> = scanResultDao.getAllScans()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -106,6 +113,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val currentUser = MutableStateFlow<String?>(null)
+
+    fun updateUserProfile(commune: String, cultures: String, langue: String, consentementAlertes: Boolean) {
+        val username = currentUser.value ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            userDao.updateProfile(username, commune, cultures, langue, consentementAlertes)
+            userDao.getUserByUsername(username)?.let { user ->
+                runCatching { com.example.api.ApiClient.service.uploadProfile(com.example.api.ProfileSyncPayload.from(user)) }
+            }
+        }
+    }
     val currentLanguageIsEnglish = MutableStateFlow(false) // false = FR, true = EN
     val currentLatitude = MutableStateFlow(5.683)
     val currentLongitude = MutableStateFlow(10.633)
@@ -181,10 +198,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     latitude = 5.6821,
                     longitude = 10.6312
                 )
-                scanResultDao.insertScan(starterScan)
-                scanResultDao.insertScan(manioc1)
-                scanResultDao.insertScan(manioc2)
-                scanResultDao.insertScan(manioc3)
+                saveScan(starterScan)
+                saveScan(manioc1)
+                saveScan(manioc2)
+                saveScan(manioc3)
             }
 
             if (allSoilRecords.value.isEmpty()) {
@@ -413,7 +430,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
 
                 val insertedId = withContext(Dispatchers.IO) {
-                    scanResultDao.insertScan(newScan)
+                    saveScan(newScan)
                 }
 
                 val savedScan = newScan.copy(id = insertedId)
@@ -661,7 +678,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 timestamp = System.currentTimeMillis()
             )
             withContext(Dispatchers.IO) {
-                scanResultDao.insertScan(tutorRecord)
+                saveScan(tutorRecord)
             }
         }
     }
