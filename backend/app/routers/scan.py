@@ -27,6 +27,9 @@ def upload_scan(
     scan = create_scan(
         db=db,
         local_id=data.local_id,
+        user_id=data.user_id,
+        pathology_id=data.pathology_id,
+        commune_id=data.commune_id,
         plant_name=data.plant_name,
         disease_name=data.disease_name,
         confidence=data.confidence,
@@ -34,6 +37,7 @@ def upload_scan(
         treatment_local=data.treatment_local,
         treatment_chemical=data.treatment_chemical,
         timestamp=data.timestamp,
+        hors_ligne=data.hors_ligne,
         latitude=data.latitude,
         longitude=data.longitude,
     )

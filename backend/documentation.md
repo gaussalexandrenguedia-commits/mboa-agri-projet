@@ -1,102 +1,152 @@
-# Rapport hebdomadaire — Développement du backend MBOA AGRI
+# MBOA AGRI — Suivi du développement du backend
 
-**Projet :** MBOA AGRI / AgroScanEdu AI  
-**Domaine :** Diagnostic et alerte des maladies agricoles  
-**Rôle :** Développement backend FastAPI  
-**Semaine :** Semaine 8 — du 31 août au 5 septembre 2026  
-**Branche Git :** `feature/backend-fastapi`  
-**Statut :** En cours
+**Date : 4 septembre 2026**  
+**Branche Git : `feature/backend-fastapi`**  
+**Technologie principale : FastAPI**
 
-```markdown
-## 2026-09-01 — Configuration de base du backend
+## 1. Objectif du backend
+
+Le backend de MBOA AGRI sert d’intermédiaire sécurisé entre l’application Android et la base de données. Il reçoit les données produites par l’application mobile, les enregistre, prépare les échanges avec le service d’intelligence artificielle Gemini et permet de diffuser des alertes territoriales concernant les maladies agricoles.
+
+Le fonctionnement retenu est le suivant : l’application mobile envoie les requêtes à l’API ; le backend traite ces requêtes et communique avec la base de données et, pour le diagnostic, avec Gemini. Les clés secrètes et les mots de passe ne doivent donc jamais être stockés dans l’application Android ni dans Git.
+
+## 2. Structure du projet
+
+Le projet suit une organisation modulaire inspirée de la structure utilisée dans les autres projets FastAPI :
+
+| Dossier        | Responsabilité                                            |
+| -------------- | --------------------------------------------------------- |
+| `app/core`     | Sécurité, dépendances et configuration technique commune  |
+| `app/crud`     | Opérations de lecture et d’écriture en base de données    |
+| `app/models`   | Modèles SQLAlchemy représentant les tables PostgreSQL     |
+| `app/routers`  | Routes HTTP de l’API                                      |
+| `app/schemas`  | Validation des requêtes et format des réponses            |
+| `app/services` | Logique métier ou intégrations externes, notamment Gemini |
+| `alembic`      | Versions et exécution des migrations de base de données   |
+
+La configuration est centralisée dans `app/config.py`. Les variables sensibles sont placées dans `.env`, tandis que `.env.example` peut être partagé et versionné sans contenir de secrets.
+
+## 3. Base de données et migrations
+
+La base utilisée est PostgreSQL 17, avec l’extension PostGIS activée dans la base `mboa_agri`. PostGIS sera utilisé pour les traitements géographiques avancés et les alertes territoriales. Les coordonnées simples `latitude` et `longitude` restent conservées pour assurer la compatibilité avec les données Android.
+
+Les migrations sont gérées avec Alembic. Les principales migrations déjà réalisées sont :
+
+| Migration      | Contenu                                                           |
+| -------------- | ----------------------------------------------------------------- |
+| `daa7aafb4bf6` | Création de la table `health_checks`                              |
+| `ce7fe908f482` | Création de la table `users`                                      |
+| `3d7996cf0e45` | Création initiale de la table `scans`                             |
+| `f29d3ede95b3` | Enrichissement de `scans` avec les relations et les champs métier |
+
+La table système PostGIS `spatial_ref_sys` ne doit pas être supprimée par les migrations Alembic. La configuration d’Alembic a été adaptée afin d’ignorer les tables système PostGIS lors de l’autogénération.
+
+## 4. Authentification et sécurité
+
+L’authentification repose sur le numéro de téléphone, qui est unique, et un mot de passe. Ce choix évite les ambiguïtés liées aux noms d’utilisateur identiques.
+
+Les routes actuellement disponibles sont :
+
+| Méthode | Route            | Fonction                                                                          |
+| ------- | ---------------- | --------------------------------------------------------------------------------- |
+| `POST`  | `/auth/register` | Inscrire un utilisateur avec son nom, son numéro de téléphone et son mot de passe |
+| `POST`  | `/auth/login`    | Vérifier les identifiants et retourner un token JWT                               |
+
+|
+Les mots de passe sont hachés avant l’enregistrement et ne sont jamais retournés dans les réponses API. Le token JWT possède une durée d’expiration configurée dans les paramètres du backend, actuellement fixée à 60 minutes par défaut.
+
+## 5. Synchronisation des scans Android
+
+L’application Android fonctionne en mode offline-first avec Room. Un scan peut être enregistré localement puis synchronisé lorsque le réseau est disponible par l’intermédiaire de `ScanSyncWorker`.
+
+Le backend accepte les données compatibles avec `ScanResultEntity`, notamment :
+
+| Champ                   | Rôle                                            |
+| ----------------------- | ----------------------------------------------- |
+| `local_id`              | Identifiant du scan sur le téléphone            |
+| `plant_name`            | Nom de la culture ou de la plante               |
+| `disease_name`          | Maladie détectée ou enregistrée localement      |
+| `confidence`            | Niveau de confiance du diagnostic               |
+| `symptoms`              | Symptômes observés                              |
+| `treatment_local`       | Traitement local recommandé                     |
+| `treatment_chemical`    | Traitement chimique recommandé                  |
+| `timestamp`             | Date Android au format millisecondes            |
+| `latitude`, `longitude` | Position GPS facultative                        |
+| `hors_ligne`            | Indique si le scan a été réalisé sans connexion |
+
+Le champ `timestamp` est de type `BIGINT` afin de pouvoir recevoir les valeurs Android en millisecondes, qui dépassent la capacité d’un entier PostgreSQL standard.
+
+Les routes fonctionnelles sont :
+
+| Méthode | Route                  | Fonction                                                   |
+| ------- | ---------------------- | ---------------------------------------------------------- |
+| `POST`  | `/api/scans`           | Recevoir et enregistrer un scan synchronisé depuis Android |
+| `GET`   | `/api/scans`           | Récupérer les scans                                        |
+| `GET`   | `/api/scans/{scan_id}` | Récupérer un scan par son identifiant                      |
+
+|
+
+## 6. Communes et alertes territoriales
+
+Les modèles `Commune` et `TerritorialAlert` ont été ajoutés pour préparer le ciblage géographique des alertes. Les opérations CRUD des communes et des alertes sont séparées des routes, conformément à l’architecture du projet.
+
+Les routes d’alertes actuellement exposées sont :
+
+| Méthode | Route               | Fonction                                                       |
+| ------- | ------------------- | -------------------------------------------------------------- |
+| `GET`   | `/alerts?commune=X` | Retourner les alertes actives liées à une commune              |
+| `POST`  | `/alerts`           | Créer une alerte pour une pathologie et une commune existantes |
+
+La route `GET /alerts?commune=X` commence par rechercher la commune à partir de son nom. Si elle n’existe pas, l’API retourne `404` avec le message `Commune introuvable.`. Si elle existe mais ne possède aucune alerte, la réponse est une liste vide.
+
+La route `POST /alerts` reçoit actuellement un payload de la forme suivante :
+
+```json
+{
+  "pathology_id": 1,
+  "commune_id": 1,
+  "scan_count": 3,
+  "alert_level": "Attention"
+}
 ```
 
-## 1. Objet du rapport
+Avant de créer l’alerte, le backend vérifie que la commune et la pathologie indiquées existent. Les coordonnées GPS précises des agriculteurs ne sont pas exposées dans la réponse d’une alerte ; l’alerte est regroupée au niveau de la commune.
 
-Ce rapport présente les travaux réalisés dans le cadre de la préparation du backend de l’application MBOA AGRI. L’objectif est de transformer le prototype Android actuel, qui conserve principalement les diagnostics en local, en une architecture partagée capable de synchroniser les observations, de produire des alertes territoriales et d’alimenter un futur tableau de bord.
+Cette création manuelle sert pour le moment aux tests et à l’administration. Une étape ultérieure devra automatiser la génération d’une alerte lorsqu’un nombre défini de scans concordants est atteint dans une commune.
 
-## 2. Travaux réalisés
+## 7. Diagnostic par image
 
-### 2.1 Analyse des documents de référence
+La route de diagnostic par image est préparée :
 
-Les règles importantes identifiées sont les suivantes : les alertes doivent être basées sur plusieurs observations concordantes, la fenêtre d’analyse initiale est de sept jours, une alerte ne doit pas être dupliquée pour une même zone et une même pathologie, et les diagnostics de faible confiance doivent pouvoir être révisés par un administrateur ou un agronome.
+| Méthode | Route                 | État                                                                                       |
+| ------- | --------------------- | ------------------------------------------------------------------------------------------ |
+| `POST`  | `/api/scans/diagnose` | Réception de l’image et des informations associées fonctionnelle ; appel Gemini à intégrer |
 
-### 2.2 Analyse de l’application Android existante
+Le backend reçoit notamment le fichier image, le nom de la plante, les symptômes et, lorsque disponibles, la latitude et la longitude. L’appel à Gemini Vision devra être réalisé côté serveur à partir d’une clé placée dans `.env`. Le résultat devra ensuite être validé et renvoyé au mobile sous un format stable.
 
-Les fichiers `AppDatabase.kt`, `Entities.kt`, `Daos.kt`, `GeminiApiClient.kt`, `Cropdiagnostic.kt` et `mainViewModel.kt` ont été examinés.
+## 8. Tests déjà effectués
 
-L’application utilise actuellement Room pour stocker localement les utilisateurs, les résultats de scan, les données de sol et les données du forum. Le modèle `ScanResultEntity` contient déjà les informations principales d’un diagnostic : plante, maladie, confiance, symptômes, traitements, horodatage et coordonnées GPS.
+Le serveur FastAPI démarre correctement et la documentation Swagger est accessible. Les tests réalisés ont validé l’inscription, la connexion JWT, la protection du mot de passe dans les réponses, la synchronisation d’un scan Android, la récupération des scans, la réception d’une image de diagnostic et l’accès à la route des alertes.
 
-L’appel Gemini est actuellement effectué directement depuis Android à l’aide de `BuildConfig.GEMINI_API_KEY`. Cette organisation devra être remplacée par un appel vers le backend FastAPI. Le backend pourra ensuite appeler Gemini de manière sécurisée, valider la réponse et renvoyer à Android un format normalisé.
+Un test de la route `GET /alerts?commune=...` avec une commune inexistante a correctement retourné une réponse HTTP `404` :
 
-L’analyse du ViewModel a également mis en évidence plusieurs responsabilités actuellement exécutées sur le téléphone : appel Gemini, interprétation d’un JSON libre, sélection d’un diagnostic de secours, enregistrement local du scan et calcul local des alertes. Ces responsabilités seront progressivement déplacées ou contrôlées par le backend.
-
-### 2.3 Mise en place de Git et de la branche de travail
-
-La branche utilisée est :
-
-feature/backend-fastapi
-
-Cette organisation permet de développer indépendamment de la branche `main` et de soumettre les changements par Pull Request après vérification.
-
-### 3.4 Organisation du dossier backend
-
-Un dossier `backend` a été créé à la racine du dépôt Android afin de séparer le code Python du code Kotlin. L’environnement virtuel Python `.venv` a été créé et activé dans ce dossier.
-
-La structure prévue suit l’organisation déjà maîtrisée par le développeur :
-
-```text
-backend/
-├── .venv/
-├── alembic/
-├── app/
-│   ├── core/
-│   ├── crud/
-│   ├── models/
-│   ├── routers/
-│   ├── schemas/
-│   ├── services/
-│   ├── config.py
-│   ├── database.py
-│   ├── main.py
-│   └── __init__.py
-├── .env
-├── .env.example
-├── .gitignore
-├── alembic.ini
-├── requirements.txt
-└── README.md
+```json
+{
+  "detail": "Commune introuvable."
+}
 ```
 
-Cette structure sépare la configuration, la sécurité, les modèles de données, les opérations CRUD, les schémas Pydantic, les routes HTTP et la logique métier.
+## 9. Prochaines étapes
 
-### 3.5 Installation de l’environnement technique
+Les prochaines priorités sont l’intégration réelle de Gemini Vision, la création et le peuplement du catalogue des 22 pathologies, l’ajout éventuel d’une colonne géographique `Geography(Point, 4326)` dans `Scan`, puis l’automatisation de la génération des alertes à partir des scans concordants.
 
-L’environnement virtuel a été activé avec succès. Les dépendances principales ont été installées : FastAPI, Uvicorn, SQLAlchemy, Psycopg, Pydantic Settings, Alembic, `python-jose`, `pwdlib` et `python-multipart`.
+Il faudra également continuer à tester chaque nouvelle route dans Swagger ou avec Postman, créer les migrations correspondantes avec Alembic et mettre à jour le journal de développement ainsi que les rapports hebdomadaires.
 
-Ces dépendances permettront de construire une API HTTP, de communiquer avec PostgreSQL, de versionner les migrations, de sécuriser l’authentification et de gérer les futurs envois de fichiers.
+> **État actuel :** l’authentification, la synchronisation des scans, la gestion des communes et les routes de consultation et de création des alertes sont en place. L’intégration Gemini et l’automatisation métier des alertes restent à finaliser.
 
-## 4. État d’avancement
+## Références techniques
 
-| Élément                            | État     | Commentaire                                                       |
-| ---------------------------------- | -------- | ----------------------------------------------------------------- |
-| Analyse des documents fonctionnels | Réalisé  | Vision, MVP et feuille de route étudiés                           |
-| Analyse du modèle Room             | Réalisé  | Entités et DAO examinés                                           |
-| Analyse de l’appel Gemini Android  | Réalisé  | Clé actuellement exposée dans l’application, migration nécessaire |
-| Branche Git dédiée                 | Réalisé  | `feature/backend-fastapi` publiée                                 |
-| Dossier `backend`                  | Réalisé  | Séparé du code Android                                            |
-| Environnement virtuel Python       | Réalisé  | `.venv` actif                                                     |
-| Dépendances Python                 | Réalisé  | Installation terminée avec succès                                 |
-| Configuration FastAPI              | En cours | `config.py`, `main.py` et endpoint de santé à finaliser et tester |
-| Connexion PostgreSQL               | À faire  | Dépend des paramètres de la base et de la configuration locale    |
-| Authentification JWT               | À faire  | Première fonctionnalité métier prévue                             |
-| Endpoint `/scans`                  | À faire  | Contrat à aligner avec Android                                    |
-| Moteur d’alertes                   | À faire  | À implémenter après persistance des scans                         |
-
-## 5. Prochaines étapes
-
-La prochaine étape consiste à finaliser la configuration minimale de FastAPI et à vérifier le démarrage du serveur avec un endpoint `/health`.
-
-Ensuite, le projet sera configuré avec `config.py`, `database.py`, Alembic et les variables d’environnement. Les premiers modèles SQLAlchemy porteront sur les utilisateurs, les profils agricoles, les communes, les pathologies, les scans, les diagnostics et les alertes.
-
-L’implémentation fonctionnelle commencera par l’inscription et la connexion, suivies de la création et de la consultation des scans. Le moteur de diagnostic Gemini sera ensuite placé côté serveur, avec validation stricte de la réponse et repli contrôlé en cas d’indisponibilité.
+[1]: https://fastapi.tiangolo.com/ "FastAPI Documentation"
+[2]: https://docs.sqlalchemy.org/en/20/ "SQLAlchemy 2.0 Documentation"
+[3]: https://alembic.sqlalchemy.org/en/latest/ "Alembic Documentation"
+[4]: https://postgis.net/documentation/ "PostGIS Documentation"
