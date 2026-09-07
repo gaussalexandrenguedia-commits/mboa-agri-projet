@@ -8,6 +8,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Grass
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Visibility
@@ -31,6 +33,7 @@ import com.example.ui.MainViewModel
 import com.example.ui.Translations
 import com.example.ui.theme.MaizeYellow
 import com.example.ui.theme.PlantationGreen
+import com.example.ui.theme.SeverityGreen
 import kotlinx.coroutines.launch
 
 @Composable
@@ -45,6 +48,13 @@ fun AuthScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
     var successMessage by remember { mutableStateOf("") }
+
+    // Profil agriculteur (inscription)
+    var commune by remember { mutableStateOf("") }
+    var cultures by remember { mutableStateOf("") }
+    var langue by remember { mutableStateOf("fr") }
+    var consentementAlertes by remember { mutableStateOf(false) }
+
     val coroutineScope = rememberCoroutineScope()
 
     fun t(key: String): String = Translations.translate(key, isEnglish)
@@ -164,6 +174,84 @@ fun AuthScreen(
                     singleLine = true
                 )
 
+                // ===== Profil agriculteur (uniquement à l'inscription) =====
+                if (isRegisterMode) {
+                    OutlinedTextField(
+                        value = commune,
+                        onValueChange = {
+                            commune = it
+                            errorMessage = ""
+                            successMessage = ""
+                        },
+                        label = { Text(t("commune")) },
+                        placeholder = { Text(t("commune_hint"), fontSize = 13.sp) },
+                        prefix = {
+                            Icon(
+                                imageVector = Icons.Default.LocationOn,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(end = 6.dp)
+                            )
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("commune_input")
+                            .padding(bottom = 12.dp),
+                        singleLine = true
+                    )
+
+                    OutlinedTextField(
+                        value = cultures,
+                        onValueChange = {
+                            cultures = it
+                            errorMessage = ""
+                            successMessage = ""
+                        },
+                        label = { Text(t("cultures")) },
+                        placeholder = { Text(t("cultures_hint"), fontSize = 13.sp) },
+                        prefix = {
+                            Icon(
+                                imageVector = Icons.Default.Grass,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(end = 6.dp)
+                            )
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("cultures_input")
+                            .padding(bottom = 12.dp),
+                        singleLine = true
+                    )
+
+                    Text(
+                        text = t("langue"),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("langue_label")
+                            .padding(bottom = 6.dp)
+                    )
+                    LanguagePickerRow(
+                        selectedLangue = langue,
+                        onSelect = { langue = it }
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    ConsentAlertsRow(
+                        checked = consentementAlertes,
+                        onCheckedChange = { consentementAlertes = it },
+                        label = t("consentement_alertes")
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
+
                 if (errorMessage.isNotEmpty()) {
                     Text(
                         text = errorMessage,
@@ -180,7 +268,7 @@ fun AuthScreen(
                 if (successMessage.isNotEmpty()) {
                     Text(
                         text = successMessage,
-                        color = Color(0xFF2E7D32),
+                        color = SeverityGreen,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
@@ -198,11 +286,25 @@ fun AuthScreen(
                             errorMessage = if (isEnglish) "Please fill in all fields." else "Veuillez remplir tous les champs."
                             return@Button
                         }
+                        // Profil agriculteur obligatoire à l'inscription
+                        if (isRegisterMode && (commune.isBlank() || cultures.isBlank())) {
+                            errorMessage = t("fill_profile_fields")
+                            return@Button
+                        }
 
                         coroutineScope.launch {
                             if (isRegisterMode) {
-                                val registered = viewModel.registerUser(uName, pWord)
+                                val registered = viewModel.registerUser(
+                                    username = uName,
+                                    passwordRaw = pWord,
+                                    commune = commune.trim(),
+                                    cultures = cultures.trim(),
+                                    langue = langue,
+                                    consentementAlertes = consentementAlertes
+                                )
                                 if (registered) {
+                                    // Appliquer immédiatement la langue choisie par l'agriculteur
+                                    viewModel.currentLanguageIsEnglish.value = langue == "en"
                                     successMessage = t("register_ok")
                                     errorMessage = ""
                                     // Switch mode cleanly after delay

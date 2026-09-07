@@ -119,8 +119,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             userDao.updateProfile(username, commune, cultures, langue, consentementAlertes)
             userDao.getUserByUsername(username)?.let { user ->
+                currentProfile.value = user
                 runCatching { com.example.api.ApiClient.service.uploadProfile(com.example.api.ProfileSyncPayload.from(user)) }
             }
+        }
+    }
+
+    /** Profil agricole de l'utilisateur connecté (commune, cultures, langue, consentement). */
+    val currentProfile = MutableStateFlow<UserEntity?>(null)
+
+    fun loadCurrentUserProfile() {
+        val username = currentUser.value ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            currentProfile.value = userDao.getUserByUsername(username)
         }
     }
     val currentLanguageIsEnglish = MutableStateFlow(false) // false = FR, true = EN
@@ -537,7 +548,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    suspend fun registerUser(username: String, passwordRaw: String): Boolean {
+    suspend fun registerUser(
+        username: String,
+        passwordRaw: String,
+        commune: String = "",
+        cultures: String = "",
+        langue: String = "fr",
+        consentementAlertes: Boolean = false
+    ): Boolean {
         return withContext(Dispatchers.IO) {
             val existing = userDao.getUserByUsername(username)
             if (existing != null) {
@@ -546,7 +564,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val hash = hashPassword(passwordRaw)
                 val sdf = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.FRANCE)
                 val dateStr = sdf.format(java.util.Date())
-                userDao.insertUser(UserEntity(username = username, passwordHash = hash, createdAt = dateStr))
+                userDao.insertUser(
+                    UserEntity(
+                        username = username,
+                        passwordHash = hash,
+                        createdAt = dateStr,
+                        commune = commune,
+                        cultures = cultures,
+                        langue = langue,
+                        consentementAlertes = consentementAlertes
+                    )
+                )
+                // Pousser le profil agricole vers le backend de Martial (best effort,
+                // rejouable plus tard depuis l'écran Paramètres).
+                userDao.getUserByUsername(username)?.let { user ->
+                    currentProfile.value = user
+                    runCatching {
+                        com.example.api.ApiClient.service.uploadProfile(
+                            com.example.api.ProfileSyncPayload.from(user)
+                        )
+                    }
+                }
                 true
             }
         }

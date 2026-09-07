@@ -31,8 +31,12 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.util.Log
 import com.example.data.ScanResultEntity
+import com.example.data.diagnosticSeverity
 import com.example.ui.MainViewModel
 import com.example.ui.Translations
+import com.example.ui.theme.SeverityOrange
+import com.example.ui.theme.SeverityRed
+import com.example.ui.theme.severityColor
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
@@ -119,7 +123,7 @@ fun DashboardScreen(
                         badge = {
                             if (activeAlerts.isNotEmpty()) {
                                 Badge(
-                                    containerColor = Color(0xFFD32F2F),
+                                    containerColor = SeverityRed,
                                     contentColor = Color.White
                                 ) {
                                     Text(text = "${activeAlerts.size}")
@@ -135,7 +139,7 @@ fun DashboardScreen(
                             Icon(
                                 imageVector = Icons.Default.NotificationsActive,
                                 contentDescription = "Alerts",
-                                tint = if (activeAlerts.isNotEmpty()) Color(0xFFD32F2F) else MaterialTheme.colorScheme.primary
+                                tint = if (activeAlerts.isNotEmpty()) SeverityRed else MaterialTheme.colorScheme.primary
                             )
                         }
                     }
@@ -227,14 +231,14 @@ fun DashboardScreen(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFF2E7D32).copy(alpha = 0.15f))
+                                .background(SeverityGreen.copy(alpha = 0.15f))
                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                         ) {
                             Text(
                                 text = "● Online • AI Actif",
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFF2E7D32)
+                                color = SeverityGreen
                             )
                         }
                     }
@@ -252,7 +256,7 @@ fun DashboardScreen(
                             .padding(vertical = 4.dp)
                             .testTag("dashboard_alert_banner_card"),
                         colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFFD32F2F) // Bold warning Red
+                            containerColor = SeverityRed // Alerte de zone rouge = URGENT
                         )
                     ) {
                         Column(
@@ -316,7 +320,7 @@ fun DashboardScreen(
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.TrendingUp,
                                         contentDescription = null,
-                                        tint = Color(0xFFFFB74D), // Light Orange
+                                        tint = SeverityOrange, // Attention : propagation en cours
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Spacer(modifier = Modifier.width(6.dp))
@@ -865,13 +869,34 @@ fun DashboardScreen(
                                     color = if (scan.plantName == "TUTORAT") MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
                                 )
                                 Spacer(modifier = Modifier.height(1.dp))
-                                Text(
-                                    text = scan.diseaseName,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 12.sp,
-                                    maxLines = 1,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                // Code couleur strict : vert = sain, orange = attention, rouge = urgent
+                                val severity = scan.diagnosticSeverity()
+                                if (severity != null) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(8.dp)
+                                                .clip(CircleShape)
+                                                .background(severity.severityColor)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = scan.diseaseName,
+                                            fontWeight = FontWeight.SemiBold,
+                                            fontSize = 12.sp,
+                                            maxLines = 1,
+                                            color = severity.severityColor
+                                        )
+                                    }
+                                } else {
+                                    Text(
+                                        text = scan.diseaseName,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 12.sp,
+                                        maxLines = 1,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                                 Text(
                                     text = dateFormatter.format(Date(scan.timestamp)),
                                     fontSize = 9.sp,

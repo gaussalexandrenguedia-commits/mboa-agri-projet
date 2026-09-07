@@ -1,13 +1,30 @@
 package com.example.sync
 
 import android.content.Context
+import androidx.work.BackoffPolicy
+import androidx.work.Constraints
 import androidx.work.CoroutineWorker
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.example.api.ApiClient
 import com.example.api.ScanSyncPayload
 import com.example.data.AppDatabase
 import com.example.data.SyncStatus
+import java.util.concurrent.TimeUnit
 
+/**
+ * Worker WorkManager : envoie automatiquement les scans PENDING / FAILED vers
+ * le backend dès que le réseau revient.
+ *
+ *  - `enqueueScanSync`         : déclenché à chaque nouveau scan (ou manuellement).
+ *  - `enqueuePeriodicScanSync` : filet de sécurité toutes les 15 minutes pour
+ *                                rejouer les envois échoués même sans nouvelle action.
+ */
 class ScanSyncWorker(
     appContext: Context,
     workerParams: WorkerParameters
@@ -32,22 +49,33 @@ class ScanSyncWorker(
     }
 }
 
-fun enqueueScanSync(context: Context) {
-    val request = androidx.work.OneTimeWorkRequestBuilder<ScanSyncWorker>()
-        .setConstraints(
-            androidx.work.Constraints.Builder()
-                .setRequiredNetworkType(androidx.work.NetworkType.CONNECTED)
-                .build()
-        )
-        .setBackoffCriteria(
-            androidx.work.BackoffPolicy.EXPONENTIAL,
-            10_000,
-            java.util.concurrent.TimeUnit.MILLISECONDS
-        )
+private fun networkConstraints(): Constraints =
+    Constraints.Builder()
+        .setRequiredNetworkType(NetworkType.CONNECTED)
         .build()
-    androidx.work.WorkManager.getInstance(context).enqueueUniqueWork(
+
+/** Envoi immédiat (dès que le réseau est disponible) après un nouveau scan. */
+fun enqueueScanSync(context: Context) {
+    val request = OneTimeWorkRequestBuilder<ScanSyncWorker>()
+        .setConstraints(networkConstraints())
+        .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 10_000, TimeUnit.MILLISECONDS)
+        .build()
+    WorkManager.getInstance(context).enqueueUniqueWork(
         "mboa-agri-scan-sync",
-        androidx.work.ExistingWorkPolicy.KEEP,
+        ExistingWorkPolicy.KEEP,
+        request
+    )
+}
+
+/** Retry périodique des scans non synchronisés (toutes les 15 minutes, réseau requis). */
+fun enqueuePeriodicScanSync(context: Context) {
+    val request = PeriodicWorkRequestBuilder<ScanSyncWorker>(15, TimeUnit.MINUTES)
+        .setConstraints(networkConstraints())
+        .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 10_000, TimeUnit.MILLISECONDS)
+        .build()
+    WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+        "mboa-agri-scan-sync-periodic",
+        ExistingPeriodicWorkPolicy.KEEP,
         request
     )
 }

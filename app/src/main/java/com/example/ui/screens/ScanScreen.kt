@@ -274,7 +274,7 @@ fun ScanScreen(
                         ) {
                             Text(
                                 text = "Détecteur IA Universel",
-                                color = Color.Green,
+                                color = Color(0xFFF7C34D), // Ambre du viseur — le vert est réservé à « sain »
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold
                             )
