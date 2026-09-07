@@ -8,8 +8,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Agriculture
+import androidx.compose.material.icons.filled.Grass
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
@@ -24,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.MainViewModel
 import com.example.ui.Translations
+import com.example.ui.theme.SeverityGreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,6 +37,33 @@ fun SettingsScreen(
 ) {
     val isEnglish by viewModel.currentLanguageIsEnglish.collectAsState()
     val isExpert by viewModel.currentAiModeExpert.collectAsState()
+    val profile by viewModel.currentProfile.collectAsState()
+
+    // Profil agriculteur : champs locaux initialisés à partir du profil enregistré
+    var commune by remember { mutableStateOf("") }
+    var cultures by remember { mutableStateOf("") }
+    var langue by remember { mutableStateOf("fr") }
+    var consentementAlertes by remember { mutableStateOf(false) }
+    var profileLoaded by remember { mutableStateOf(false) }
+    var profileSavedTick by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) { viewModel.loadCurrentUserProfile() }
+    LaunchedEffect(profile) {
+        val loadedProfile = profile
+        if (!profileLoaded && loadedProfile != null) {
+            commune = loadedProfile.commune
+            cultures = loadedProfile.cultures
+            langue = loadedProfile.langue.ifBlank { "fr" }
+            consentementAlertes = loadedProfile.consentementAlertes
+            profileLoaded = true
+        }
+    }
+    LaunchedEffect(profileSavedTick) {
+        if (profileSavedTick) {
+            kotlinx.coroutines.delay(2000)
+            profileSavedTick = false
+        }
+    }
 
     fun t(key: String): String = Translations.translate(key, isEnglish)
 
@@ -60,6 +91,104 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Profil agriculteur (commune, cultures, langue, consentement aux alertes)
+            SettingsSectionCard(
+                title = t("profile_section"),
+                icon = Icons.Default.Agriculture
+            ) {
+                OutlinedTextField(
+                    value = commune,
+                    onValueChange = { commune = it },
+                    label = { Text(t("commune")) },
+                    placeholder = { Text(t("commune_hint"), fontSize = 13.sp) },
+                    prefix = {
+                        Icon(
+                            imageVector = Icons.Default.LocationOn,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(end = 6.dp)
+                        )
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("settings_commune_input"),
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedTextField(
+                    value = cultures,
+                    onValueChange = { cultures = it },
+                    label = { Text(t("cultures")) },
+                    placeholder = { Text(t("cultures_hint"), fontSize = 13.sp) },
+                    prefix = {
+                        Icon(
+                            imageVector = Icons.Default.Grass,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(end = 6.dp)
+                        )
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("settings_cultures_input"),
+                    singleLine = true
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = t("langue"),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                LanguagePickerRow(selectedLangue = langue, onSelect = { langue = it })
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                ConsentAlertsRow(
+                    checked = consentementAlertes,
+                    onCheckedChange = { consentementAlertes = it },
+                    label = t("consentement_alertes")
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Button(
+                    onClick = {
+                        viewModel.updateUserProfile(
+                            commune = commune.trim(),
+                            cultures = cultures.trim(),
+                            langue = langue,
+                            consentementAlertes = consentementAlertes
+                        )
+                        viewModel.currentLanguageIsEnglish.value = langue == "en"
+                        profileSavedTick = true
+                    },
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("save_profile_button")
+                ) {
+                    Text(t("save_profile"), fontWeight = FontWeight.Bold)
+                }
+
+                if (profileSavedTick) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "✓ " + t("profile_saved"),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = SeverityGreen
+                    )
+                }
+            }
+
             // Language Selection Section
             SettingsSectionCard(
                 title = t("language"),

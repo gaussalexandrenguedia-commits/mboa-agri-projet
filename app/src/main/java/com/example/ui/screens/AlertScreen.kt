@@ -32,9 +32,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.example.data.DiagnosticSeverity
 import com.example.ui.MainViewModel
 import com.example.ui.Translations
 import com.example.ui.ZoneAlert
+import com.example.ui.theme.SeverityGreen
+import com.example.ui.theme.SeverityOrange
+import com.example.ui.theme.SeverityRed
+import com.example.ui.theme.label
+import com.example.ui.theme.severityColor
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -278,7 +284,7 @@ fun AlertScreen(
                     Icon(
                         imageVector = Icons.Default.Warning,
                         contentDescription = null,
-                        tint = Color(0xFFD32F2F),
+                        tint = SeverityRed,
                         modifier = Modifier.size(24.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
@@ -305,7 +311,7 @@ fun AlertScreen(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(6.dp))
-                                .background(Color(0xFFD32F2F))
+                                .background(SeverityRed)
                                 .padding(horizontal = 8.dp, vertical = 3.dp)
                         ) {
                             Text(
@@ -325,7 +331,7 @@ fun AlertScreen(
                             text = "Maladie : ${alert.diseaseName}",
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 13.sp,
-                            color = Color(0xFFD32F2F)
+                            color = SeverityRed
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
@@ -368,7 +374,7 @@ fun ActiveAlertsTab(
                     .fillMaxWidth()
                     .testTag("alert_high_impact_banner"),
                 colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFB71C1C) // Deep Alert Red
+                    containerColor = SeverityRed // Alerte de zone rouge = URGENT
                 )
             ) {
                 Column(
@@ -386,7 +392,7 @@ fun ActiveAlertsTab(
                                 modifier = Modifier
                                     .size(12.dp)
                                     .clip(CircleShape)
-                                    .background(Color.Yellow)
+                                    .background(SeverityOrange)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
@@ -423,6 +429,42 @@ fun ActiveAlertsTab(
             }
         }
 
+        // Légende du code couleur strict : vert = sain, orange = attention, rouge = urgent
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("severity_legend"),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                DiagnosticSeverity.entries.forEach { severity ->
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(severity.severityColor.copy(alpha = 0.15f))
+                            .padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .clip(CircleShape)
+                                .background(severity.severityColor)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = severity.label(isEnglish),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Black,
+                            color = severity.severityColor
+                        )
+                    }
+                }
+            }
+        }
+
         // Live Google Map of Outbreak Epicenter
         item {
             Card(
@@ -444,7 +486,7 @@ fun ActiveAlertsTab(
                             Icon(
                                 imageVector = Icons.Default.LocationOn,
                                 contentDescription = null,
-                                tint = Color(0xFFD32F2F),
+                                tint = SeverityRed,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
@@ -507,7 +549,7 @@ fun ActiveAlertsTab(
                     text = "${alerts.size} ${if (isEnglish) "active" else "actifs"}",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFFD32F2F)
+                    color = SeverityRed
                 )
             }
         }
@@ -528,7 +570,7 @@ fun ActiveAlertsTab(
                             Icon(
                                 imageVector = Icons.Default.CheckCircle,
                                 contentDescription = null,
-                                tint = Color(0xFF2E7D32),
+                                tint = SeverityGreen,
                                 modifier = Modifier.size(40.dp)
                             )
                             Spacer(modifier = Modifier.height(8.dp))
@@ -551,7 +593,7 @@ fun ActiveAlertsTab(
                         .fillMaxWidth()
                         .testTag("alert_item_${alert.plantName}"),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    border = CardDefaults.outlinedCardBorder().copy(brush = Brush.linearGradient(listOf(Color(0xFFD32F2F), Color(0xFFFF9800))))
+                    border = CardDefaults.outlinedCardBorder().copy(brush = Brush.linearGradient(listOf(SeverityRed, SeverityOrange)))
                 ) {
                     Column(
                         modifier = Modifier
@@ -567,14 +609,14 @@ fun ActiveAlertsTab(
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(8.dp))
-                                        .background(Color(0xFFD32F2F).copy(alpha = 0.15f))
+                                        .background(SeverityRed.copy(alpha = 0.15f))
                                         .padding(horizontal = 8.dp, vertical = 4.dp)
                                 ) {
                                     Text(
                                         text = alert.plantName.uppercase(),
                                         fontWeight = FontWeight.Black,
                                         fontSize = 11.sp,
-                                        color = Color(0xFFD32F2F)
+                                        color = SeverityRed
                                     )
                                 }
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -615,7 +657,7 @@ fun ActiveAlertsTab(
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.TrendingUp,
                                     contentDescription = null,
-                                    tint = Color(0xFFE65100),
+                                    tint = SeverityOrange,
                                     modifier = Modifier.size(14.dp)
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
@@ -623,7 +665,7 @@ fun ActiveAlertsTab(
                                     text = "${alert.casesCount} ${if (isEnglish) "reported cases" else "cas signalés"}",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFE65100)
+                                    color = SeverityOrange
                                 )
                             }
                             Text(
@@ -690,7 +732,7 @@ fun PreventionGuideTab(isEnglish: Boolean) {
                 stepNumber = "01",
                 title = if (isEnglish) "Biological & Organic Recipes" else "Traitements Bio & Écologiques Locaux",
                 icon = Icons.Default.Eco,
-                color = Color(0xFF2E7D32),
+                color = SeverityGreen,
                 content = if (isEnglish) 
                     "• Neem Oil Extract: Mix 50ml of crushed neem seed oil with 1L warm soapy water. Spray every 5 days.\n" +
                     "• Wood Ash & Black Soap: Dust dry kitchen wood ash on wet leaves to deter fungal spores and insect vectors.\n" +
@@ -708,7 +750,7 @@ fun PreventionGuideTab(isEnglish: Boolean) {
                 stepNumber = "02",
                 title = if (isEnglish) "Quarantine & Field Sanitation" else "Quarantaine & Hygiène des Outils",
                 icon = Icons.Default.CleaningServices,
-                color = Color(0xFF1565C0),
+                color = SeverityOrange,
                 content = if (isEnglish) 
                     "• Sanitary Roguing: Immediately uproot infected plants showing symptoms, place in sealed bags and burn or bury at 50cm deep.\n" +
                     "• Tool Disinfection: Clean machetes, hoes, and shears with 70% alcohol or bleach solution between trees to avoid cross-contamination.\n" +
@@ -726,7 +768,7 @@ fun PreventionGuideTab(isEnglish: Boolean) {
                 stepNumber = "03",
                 title = if (isEnglish) "Approved Chemical Guidelines" else "Consignes d'Intervention Chimique",
                 icon = Icons.Default.Science,
-                color = Color(0xFFD32F2F),
+                color = SeverityRed,
                 content = if (isEnglish) 
                     "• Always wear full protective gear (mask, gloves, boots) when handling copper or metalaxyl fungicides.\n" +
                     "• Strict Dosage: Follow exact ratios (50g per 15L backpack sprayer) to avoid soil toxicity and resistance build-up.\n" +
@@ -744,7 +786,7 @@ fun PreventionGuideTab(isEnglish: Boolean) {
                 stepNumber = "04",
                 title = if (isEnglish) "Territorial Alert Threshold Rules" else "Seuil d'Alerte Algorithmique de Zone",
                 icon = Icons.Default.AutoGraph,
-                color = Color(0xFFE65100),
+                color = SeverityOrange,
                 content = if (isEnglish) 
                     "• 3+ Identical Scans: When 3 or more farmers within a 10 km radius scan the same disease within 7 days, a Red Zone Alert automatically broadcasts.\n" +
                     "• Community Protection: This early warning alerts nearby farmers to inspect their crops before symptoms appear."
@@ -853,7 +895,7 @@ fun ReportOutbreakTab(
                         Icon(
                             imageVector = Icons.Default.AddAlert,
                             contentDescription = null,
-                            tint = Color(0xFFD32F2F),
+                            tint = SeverityRed,
                             modifier = Modifier.size(28.dp)
                         )
                         Spacer(modifier = Modifier.width(10.dp))
@@ -919,7 +961,7 @@ fun ReportOutbreakTab(
                             .fillMaxWidth()
                             .height(48.dp)
                             .testTag("report_submit_button"),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
+                        colors = ButtonDefaults.buttonColors(containerColor = SeverityRed),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Icon(

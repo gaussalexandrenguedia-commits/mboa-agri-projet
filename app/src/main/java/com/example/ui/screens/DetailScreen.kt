@@ -21,8 +21,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.DiagnosticSeverity
+import com.example.data.diagnosticSeverity
 import com.example.ui.MainViewModel
 import com.example.ui.Translations
+import com.example.ui.theme.label
+import com.example.ui.theme.severityColor
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -131,6 +135,58 @@ fun DetailScreen(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer
                             )
+                        }
+                    }
+                }
+
+                // ===== Bandeau de sévérité — code couleur strict =====
+                // Vert = sain • Orange = attention • Rouge = urgent
+                val severity = scan.diagnosticSeverity()
+                if (severity != null) {
+                    val severityIcon = when (severity) {
+                        DiagnosticSeverity.SAIN -> Icons.Default.CheckCircle
+                        DiagnosticSeverity.ATTENTION -> Icons.Default.Warning
+                        DiagnosticSeverity.URGENT -> Icons.Default.NotificationImportant
+                    }
+                    val severityAdvice = when (severity) {
+                        DiagnosticSeverity.SAIN -> t("severity_sain_desc")
+                        DiagnosticSeverity.ATTENTION -> t("severity_attention_desc")
+                        DiagnosticSeverity.URGENT -> t("severity_urgent_desc")
+                    }
+                    Surface(
+                        color = severity.severityColor.copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp)
+                            .testTag("severity_banner")
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = severityIcon,
+                                contentDescription = severity.label(isEnglish),
+                                tint = severity.severityColor,
+                                modifier = Modifier.size(28.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = severity.label(isEnglish),
+                                    color = severity.severityColor,
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 15.sp
+                                )
+                                Text(
+                                    text = severityAdvice,
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }

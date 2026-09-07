@@ -6,6 +6,7 @@ import com.example.data.UserEntity
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 import retrofit2.http.Body
@@ -76,6 +77,18 @@ object ApiClient {
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
         .writeTimeout(60, TimeUnit.SECONDS)
+        .apply {
+            // En debug uniquement : tracer les requêtes vers le backend
+            // (POST /api/scans, /api/profiles, /api/ai/generate) pour diagnostiquer
+            // facilement les problèmes de connectivité depuis l'émulateur.
+            if (BuildConfig.DEBUG) {
+                addInterceptor(
+                    HttpLoggingInterceptor().apply {
+                        level = HttpLoggingInterceptor.Level.BASIC
+                    }
+                )
+            }
+        }
         .build()
 
     val service: BackendApiService by lazy {

@@ -15,6 +15,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.ui.MainViewModel
 import com.example.ui.screens.*
+import com.example.sync.enqueuePeriodicScanSync
 import com.example.ui.theme.MyApplicationTheme
 
 class MainActivity : ComponentActivity() {
@@ -22,6 +23,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Filet de sécurité : rejouer les scans PENDING/FAILED dès que le réseau
+        // revient, même si l'agriculteur n'a pas scanné depuis le dernier échec.
+        enqueuePeriodicScanSync(this)
         enableEdgeToEdge()
         setContent {
             MyApplicationTheme {
