@@ -104,6 +104,17 @@ Puis, depuis la racine du dépôt :
 
 Sous Windows, utiliser `gradlew.bat` au lieu de `./gradlew`.
 
+### Signature
+
+- **Debug** : le keystore `debug.keystore` à la racine du dépôt est **optionnel**. S’il est présent, le build l’utilise ; sinon, le build bascule automatiquement sur le keystore de débogage standard d’Android (`~/.android/debug.keystore`, généré par Android Studio). Un clone propre compile donc `assembleDebug` sans aucune configuration — `debug.keystore` étant ignoré par Git, ce repli évite l’échec du build.
+- **Release** : créez un keystore de publication (à conserver hors du dépôt) avec :
+
+```bash
+keytool -genkey -v -keystore my-upload-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+```
+
+Le build release lit ensuite le keystore via `KEYSTORE_PATH` (par défaut `my-upload-key.jks` à la racine) et les mots de passe via les variables d’environnement `STORE_PASSWORD` et `KEY_PASSWORD` — jamais en clair dans le code.
+
 ## Structure utile
 
 ```text
