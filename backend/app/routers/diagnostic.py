@@ -17,6 +17,10 @@ from app.crud.diagnostic import create_diagnostic
 from app.database import get_db
 from app.models.user import User
 from app.schemas.diagnostic import DiagnosticResponse
+from app.services.cloudinary import (
+    CloudinaryService,
+    CloudinaryServiceError,
+)
 from app.services.diagnostic import (
     get_catalog_for_plant,
     resolve_prediction,
@@ -97,7 +101,7 @@ async def diagnose_scan(
                 status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
             ),
             detail=(
-                "L’image est vide ou dépasse 10 Mo."
+                "L'image est vide ou dépasse 10 Mo."
             ),
         )
 
@@ -123,9 +127,10 @@ async def diagnose_scan(
         commune_id = commune.id
 
     try:
-        service = GeminiService()
+        # 1. Diagnostic avec Gemini
+        gemini = GeminiService()
 
-        prediction = service.diagnose(
+        prediction = gemini.diagnose(
             image_bytes=image_bytes,
             mime_type=image.content_type,
             plant_name=plant_name.strip(),
@@ -138,12 +143,26 @@ async def diagnose_scan(
             ),
         )
 
+        # 2. Priorité au catalogue expert
         resolution = resolve_prediction(
             db,
             prediction,
             plant_name,
         )
 
+        # 3. Stockage permanent sur Cloudinary
+        cloudinary = CloudinaryService()
+
+        image_url = (
+            cloudinary.upload_diagnostic_image(
+                image_bytes=image_bytes,
+                filename=image.filename,
+                mime_type=image.content_type,
+                user_id=current_user.id,
+            )
+        )
+
+        # 4. Enregistrement du diagnostic
         diagnostic = create_diagnostic(
             db=db,
             user_id=current_user.id,
@@ -155,12 +174,14 @@ async def diagnose_scan(
             confidence=prediction.confidence,
             symptoms=resolution.symptoms,
             treatment_local=resolution.treatment_local,
-            treatment_chemical=resolution.treatment_chemical,
+            treatment_chemical=(
+                resolution.treatment_chemical
+            ),
             timestamp=int(time.time() * 1000),
             hors_ligne=False,
             latitude=latitude,
             longitude=longitude,
-            image_url=None,
+            image_url=image_url,
             severity_detected=(
                 resolution.severity_detected
             ),
@@ -175,7 +196,10 @@ async def diagnose_scan(
         db.commit()
         db.refresh(diagnostic)
 
-    except GeminiServiceError as exc:
+    except (
+        GeminiServiceError,
+        CloudinaryServiceError,
+    ) as exc:
         db.rollback()
 
         raise HTTPException(
@@ -197,7 +221,9 @@ async def diagnose_scan(
         confidence=diagnostic.confidence,
         symptoms=diagnostic.symptoms,
         treatment_local=diagnostic.treatment_local,
-        treatment_chemical=diagnostic.treatment_chemical,
+        treatment_chemical=(
+            diagnostic.treatment_chemical
+        ),
         pathology_id=diagnostic.pathology_id,
         pathology_code=resolution.pathology_code,
         commune_id=diagnostic.commune_id,

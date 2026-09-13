@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from app.config import settings
 
 
-class GeminiPrediction(BaseModel ):
+class GeminiPrediction(BaseModel):
     pathology_code: str | None = None
 
     disease_name: str = Field(
@@ -49,7 +49,7 @@ class GeminiService:
         self.endpoint = (
             "https://generativelanguage.googleapis.com/v1beta/"
             f"models/{self.model}:generateContent"
-         )
+        )
 
     def diagnose(
         self,
@@ -115,12 +115,14 @@ Règles obligatoires :
             ],
             "generationConfig": {
                 "temperature": 0.1,
+                "maxOutputTokens": 2048,
                 "responseMimeType": "application/json",
             },
+
         }
 
         try:
-            with httpx.Client(timeout=90.0 ) as client:
+            with httpx.Client(timeout=90.0) as client:
                 response = client.post(
                     self.endpoint,
                     params={
@@ -144,7 +146,7 @@ Règles obligatoires :
             ValueError,
             KeyError,
             TypeError,
-         ) as exc:
+        ) as exc:
             raise GeminiServiceError(
                 "La réponse Gemini est indisponible ou invalide."
             ) from exc
