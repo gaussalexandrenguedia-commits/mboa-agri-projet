@@ -427,3 +427,13 @@ raise HTTPException(
 
 **Dernière mise à jour** : Septembre 2026  
 **Responsable** : [Votre nom]
+
+
+
+
+
+
+
+
+
+

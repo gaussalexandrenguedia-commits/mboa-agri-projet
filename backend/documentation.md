@@ -142,7 +142,7 @@ Les prochaines priorités sont l’intégration réelle de Gemini Vision, la cr�
 
 Il faudra également continuer à tester chaque nouvelle route dans Swagger ou avec Postman, créer les migrations correspondantes avec Alembic et mettre à jour le journal de développement ainsi que les rapports hebdomadaires.
 
-> **État actuel :** l’authentification, la synchronisation des scans, la gestion des communes et les routes de consultation et de création des alertes sont en place. L’intégration Gemini et l’automatisation métier des alertes restent à finaliser.
+> **État actuel :** l’authentification, la gestion des communes et les routes de consultation et de création des alertes sont en place. L’intégration Gemini et l’automatisation métier des alertes restent à finaliser.
 
 ## Références techniques
 
