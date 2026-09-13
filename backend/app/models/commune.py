@@ -1,6 +1,6 @@
+from geoalchemy2 import Geometry
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
-from geoalchemy2 import Geometry
 
 from app.database import Base
 

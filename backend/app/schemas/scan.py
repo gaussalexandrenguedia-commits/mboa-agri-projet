@@ -2,17 +2,6 @@ from pydantic import BaseModel, Field
 
 
 class ScanCreateRequest(BaseModel):
-    """
-    Payload compatible avec ScanResultEntity côté Android.
-
-    user_id correspond à l'identifiant local de Room.
-    Il peut être différent de l'identifiant PostgreSQL.
-
-    Le backend ne l'utilise jamais pour authentifier l'utilisateur
-    ou déterminer le propriétaire du scan.
-
-    Le JWT est la seule source d'identité côté serveur.
-    """
 
     local_id: int = Field(
         ge=0,
@@ -33,9 +22,19 @@ class ScanCreateRequest(BaseModel):
         ge=1,
     )
 
+    commune_code: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=50,
+        description="Code partagé de la commune",
+    )
+
     commune_id: int | None = Field(
         default=None,
         ge=1,
+        description=(
+            "Identifiant local Room conservé pour compatibilité"
+        ),
     )
 
     hors_ligne: bool = False
