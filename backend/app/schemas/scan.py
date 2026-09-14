@@ -2,20 +2,85 @@ from pydantic import BaseModel, Field
 
 
 class ScanCreateRequest(BaseModel):
-    local_id: int = Field(ge=0)
-    user_id: int | None = Field(default=None, ge=1)
-    pathology_id: int | None = Field(default=None, ge=1)
-    commune_id: int | None = Field(default=None, ge=1)
+
+    local_id: int = Field(
+        ge=0,
+        description="Identifiant local unique du scan dans Room",
+    )
+
+    user_id: int | None = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Identifiant utilisateur local Room, "
+            "conservé uniquement pour compatibilité"
+        ),
+    )
+
+    pathology_id: int | None = Field(
+        default=None,
+        ge=1,
+    )
+
+    commune_code: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=50,
+        description="Code partagé de la commune",
+    )
+
+    commune_id: int | None = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Identifiant local Room conservé pour compatibilité"
+        ),
+    )
+
     hors_ligne: bool = False
-    plant_name: str = Field(min_length=1, max_length=100)
-    disease_name: str = Field(min_length=1, max_length=150)
-    confidence: int = Field(ge=0, le=100)
-    symptoms: str = Field(min_length=1)
-    treatment_local: str = Field(min_length=1)
-    treatment_chemical: str = Field(min_length=1)
-    timestamp: int = Field(ge=0)
-    latitude: float | None = Field(default=None, ge=-90, le=90)
-    longitude: float | None = Field(default=None, ge=-180, le=180)
+
+    plant_name: str = Field(
+        min_length=1,
+        max_length=100,
+    )
+
+    disease_name: str = Field(
+        min_length=1,
+        max_length=150,
+    )
+
+    confidence: int = Field(
+        ge=0,
+        le=100,
+    )
+
+    symptoms: str = Field(
+        min_length=1,
+    )
+
+    treatment_local: str = Field(
+        min_length=1,
+    )
+
+    treatment_chemical: str = Field(
+        min_length=1,
+    )
+
+    timestamp: int = Field(
+        ge=0,
+    )
+
+    latitude: float | None = Field(
+        default=None,
+        ge=-90,
+        le=90,
+    )
+
+    longitude: float | None = Field(
+        default=None,
+        ge=-180,
+        le=180,
+    )
 
 
 class ScanResponse(BaseModel):
@@ -25,16 +90,25 @@ class ScanResponse(BaseModel):
 
     pathology_id: int | None
     commune_id: int | None
+
     hors_ligne: bool
 
     plant_name: str
     disease_name: str
     confidence: int
+
     symptoms: str
     treatment_local: str
     treatment_chemical: str
+
     timestamp: int
+
     latitude: float | None
     longitude: float | None
 
-    model_config = {"from_attributes": True}
+    sync_status: str = "created"
+    message: str | None = None
+
+    model_config = {
+        "from_attributes": True,
+    }
