@@ -10,6 +10,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -18,6 +19,12 @@ from app.database import Base
 
 class Diagnostic(Base):
     __tablename__ = "diagnostics"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "local_id", "hors_ligne",
+            name="uq_diagnostics_user_local_hors_ligne"
+        ),
+    )
 
     id: Mapped[int] = mapped_column(
         primary_key=True,

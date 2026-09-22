@@ -38,11 +38,15 @@ data class UserEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val username: String,
     val passwordHash: String,
+    val phoneNumber: String = "",
     val createdAt: String = "",
     val commune: String = "",
+    val communeCode: String = "", // Code stable partagé avec backend ex: CM-BFS-02
     val cultures: String = "",
     val langue: String = "fr",
-    val consentementAlertes: Boolean = false
+    val consentementAlertes: Boolean = false,
+    val backendUserId: Int? = null, // id PostgreSQL retourné par /auth/register
+    val lastToken: String = "" // cache du dernier JWT pour debug offline
 )
 
 @Entity(tableName = "forum_posts")

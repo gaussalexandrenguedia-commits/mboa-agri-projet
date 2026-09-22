@@ -6,6 +6,8 @@ from app.routers.scan import router as scan_router
 from app.routers.diagnostic import router as diagnostic_router
 from app.routers.alerts import router as alert_router
 from app.routers.pathology import router as pathology_router
+from app.routers.profile import router as profile_router
+from app.routers.ai_legacy import router as ai_legacy_router
 
 app = FastAPI(
     title=settings.app_name,
@@ -18,6 +20,8 @@ app.include_router(scan_router)
 app.include_router(diagnostic_router)
 app.include_router(alert_router)
 app.include_router(pathology_router)
+app.include_router(profile_router)
+app.include_router(ai_legacy_router)
 
 
 @app.get("/health")

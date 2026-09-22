@@ -55,17 +55,33 @@ fun AlertScreen(
     fun t(key: String) = Translations.translate(key, isEnglish)
 
     val activeAlerts by viewModel.activeAlerts.collectAsState()
+    val backendAlerts by viewModel.backendAlerts.collectAsState()
     val currentLat by viewModel.currentLatitude.collectAsState()
     val currentLng by viewModel.currentLongitude.collectAsState()
+    val profile by viewModel.currentProfile.collectAsState()
 
-    var selectedTab by remember { mutableStateOf(0) } // 0 = Map & Active Alerts, 1 = Prevention Guide, 2 = Report Outbreak
+    var selectedTab by remember { mutableStateOf(0) }
     var selectedAlertForReport by remember { mutableStateOf<ZoneAlert?>(null) }
     var showReportDialog by remember { mutableStateOf(false) }
 
-    // Report Outbreak Form state
     var reportCrop by remember { mutableStateOf("") }
     var reportSymptom by remember { mutableStateOf("") }
     var reportSector by remember { mutableStateOf("Foumbot / Ouest Cameroun") }
+
+    // Charger les alertes backend au démarrage avec le code commune du profil
+    LaunchedEffect(Unit) {
+        viewModel.loadCurrentUserProfile()
+        // Délai court pour laisser le profil se charger
+        kotlinx.coroutines.delay(500)
+        val code = profile?.communeCode?.takeIf { it.isNotBlank() }
+            ?: com.example.api.TokenManager.getInstance(context).getCommuneCode()
+        viewModel.fetchBackendAlerts(communeCode = code)
+    }
+    LaunchedEffect(profile) {
+        profile?.communeCode?.takeIf { it.isNotBlank() }?.let { code ->
+            viewModel.fetchBackendAlerts(communeCode = code)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -205,6 +221,11 @@ fun AlertScreen(
                     onSelectAlert = { alert ->
                         selectedAlertForReport = alert
                         showReportDialog = true
+                    },
+                    onRefreshBackend = {
+                        val code = profile?.communeCode?.takeIf { it.isNotBlank() }
+                            ?: com.example.api.TokenManager.getInstance(context).getCommuneCode()
+                        viewModel.fetchBackendAlerts(communeCode = code)
                     }
                 )
                 1 -> PreventionGuideTab(isEnglish = isEnglish)
@@ -358,7 +379,8 @@ fun ActiveAlertsTab(
     currentLat: Double,
     currentLng: Double,
     isEnglish: Boolean,
-    onSelectAlert: (ZoneAlert) -> Unit
+    onSelectAlert: (ZoneAlert) -> Unit,
+    onRefreshBackend: (() -> Unit)? = null
 ) {
     LazyColumn(
         modifier = Modifier
@@ -528,6 +550,52 @@ fun ActiveAlertsTab(
                             },
                             modifier = Modifier.fillMaxSize()
                         )
+                    }
+                }
+            }
+        }
+
+        // Backend sync status
+        item {
+            Card(
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (isEnglish) "Backend Alerts (commune)" else "Alertes Backend (commune)",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = if (isEnglish) "GET /alerts?commune_code=..." else "GET /alerts?commune_code=... (filtrage territorial)",
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                        )
+                        Text(
+                            text = "${alerts.count { it.source == "BACKEND" }} backend, ${alerts.count { it.source == "LOCAL" }} local",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                    if (onRefreshBackend != null) {
+                        IconButton(onClick = onRefreshBackend) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Refresh backend alerts",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 }
             }
