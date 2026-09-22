@@ -12,11 +12,11 @@ android {
 
   defaultConfig {
     // URL backend injectée au build via BACKEND_BASE_URL.
-    // - Développement émulateur : http://10.0.2.2:8000/ (défaut)
-    // - Production Railway/Render : https://votre-api.up.railway.app/ (fourni par Martial)
+    // - Production (défaut) : https://backend-fastapi-d97b775d.fastapicloud.dev/ (backend de Martial)
+    // - Développement émulateur : export BACKEND_BASE_URL="http://10.0.2.2:8000/"
     // Le slash final est obligatoire pour Retrofit.
-    // Exemple : export BACKEND_BASE_URL="https://api-mboa-agri-production.up.railway.app/" && ./gradlew assembleDebug
-    val backendBaseUrlRaw = System.getenv("BACKEND_BASE_URL") ?: "http://10.0.2.2:8000/"
+    // Exemple : export BACKEND_BASE_URL="https://backend-fastapi-d97b775d.fastapicloud.dev/" && ./gradlew assembleDebug
+    val backendBaseUrlRaw = System.getenv("BACKEND_BASE_URL") ?: "https://backend-fastapi-d97b775d.fastapicloud.dev/"
     val backendBaseUrl = if (backendBaseUrlRaw.endsWith("/")) backendBaseUrlRaw else "$backendBaseUrlRaw/"
     buildConfigField("String", "BACKEND_BASE_URL", "\"$backendBaseUrl\"")
     // Pour debug : afficher l'URL au build
@@ -24,8 +24,8 @@ android {
     applicationId = "com.aistudio.mboaagri.tkplnz"
     minSdk = 24
     targetSdk = 36
-    versionCode = 2
-    versionName = "1.1.0-jwt-sync"
+    versionCode = 3
+    versionName = "1.2.0-prod"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

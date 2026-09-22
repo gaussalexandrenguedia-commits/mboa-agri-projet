@@ -22,17 +22,18 @@ En cas de problème Java dans sandbox sans JDK, le build est validable sur machi
 ### Option A - Au build (recommandé pour APK équipe)
 
 ```bash
-export BACKEND_BASE_URL="https://votre-backend-martial.up.railway.app/"
+export BACKEND_BASE_URL="https://backend-fastapi-d97b775d.fastapicloud.dev/"
 ./gradlew assembleDebug
 ```
 
-Le `println` dans `app/build.gradle.kts` confirme l'URL active au build.
+Cette URL est aussi la valeur **par défaut** de `app/build.gradle.kts` : sans variable
+d'environnement, l'APK pointe déjà sur la prod. Le `println` dans le gradle confirme l'URL active au build.
 
 ### Option B - Runtime dans l'app (sans rebuild)
 
 1. Installer l'APK
 2. Ouvrir Paramètres -> Configuration Backend (Production)
-3. Saisir l'URL fournie par Martial, ex: `https://mboa-agri-backend.up.railway.app/`
+3. Saisir l'URL de Martial : `https://backend-fastapi-d97b775d.fastapicloud.dev/`
 4. Sauvegarder -> ApiClient reconstruit
 5. Se reconnecter pour obtenir un JWT sur la nouvelle URL
 
@@ -193,7 +194,7 @@ Puis vérifier dans l'app après refresh.
 ## 6) Générer l'APK debug et l'envoyer à l'équipe
 
 ```bash
-export BACKEND_BASE_URL="https://votre-backend-prod.up.railway.app/"
+export BACKEND_BASE_URL="https://backend-fastapi-d97b775d.fastapicloud.dev/"  # optionnel : c'est le défaut
 ./gradlew assembleDebug
 
 # Vérifier

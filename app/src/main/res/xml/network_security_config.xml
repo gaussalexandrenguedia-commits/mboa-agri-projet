@@ -6,8 +6,8 @@
   de l'émulateur (http://10.0.2.2:8000/). On autorise donc le cleartext
   UNIQUEMENT pour ces hôtes de développement, jamais pour tout le domaine.
 
-  Pour la production (Railway/Render) en HTTPS, aucun cleartext n'est nécessaire.
-  On autorise les sous-domaines railway.app et onrender.com en HTTPS (par défaut).
+  Pour la production (FastAPI Cloud de Martial) en HTTPS, aucun cleartext n'est nécessaire.
+  On autorise explicitement fastapicloud.dev en HTTPS (cleartext=false).
 -->
 <network-security-config>
     <!-- Développement local : cleartext autorisé uniquement pour émulateur -->
@@ -25,8 +25,10 @@
         </trust-anchors>
     </base-config>
 
-    <!-- Optionnel : autoriser explicitement les domaines de prod en HTTPS -->
+    <!-- Production : autoriser explicitement les domaines de prod en HTTPS -->
     <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">fastapicloud.dev</domain>
+        <domain includeSubdomains="true">backend-fastapi-d97b775d.fastapicloud.dev</domain>
         <domain includeSubdomains="true">railway.app</domain>
         <domain includeSubdomains="true">up.railway.app</domain>
         <domain includeSubdomains="true">onrender.com</domain>
