@@ -15,6 +15,25 @@ Validation build :
 
 Prérequis : JDK 17+, SDK Android 36. Le wrapper Gradle 9.3.1 est inclus.
 
+### Si le build échoue avec « SDK location not found » (local.properties manquant)
+
+`local.properties` est un fichier **local** (gitignoré) : sur un clone à froid /
+ZIP GitHub il peut être absent. Le garde-fou de `settings.gradle.kts` (PR #8)
+le crée automatiquement au premier build s'il n'existe pas. Procédure
+**manuelle** (SDK dans un emplacement non standard, ou base sans le garde-fou) :
+
+```powershell
+# Windows PowerShell (chemin = Android Studio -> Tools -> SDK Manager)
+Set-Content -Path local.properties -Value "sdk.dir=C:/Users/PC/AppData/Local/Android/Sdk" -Encoding ASCII
+```
+
+```bash
+# macOS / Linux
+echo "sdk.dir=$HOME/Android/Sdk" > local.properties   # chemin à adapter
+```
+
+Barres obliques `/` dans le chemin = OK dans tous les cas.
+
 En cas de problème Java dans sandbox sans JDK, le build est validable sur machine Android Studio. Le code compile (migrations Room 4->5, ApiClient avec JWT, etc.).
 
 ## 2) Configurer l'URL de production
