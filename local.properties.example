@@ -1,0 +1,21 @@
+# ============================================================
+# local.properties.example — template pour l'équipe
+# ============================================================
+# local.properties est un fichier LOCAL (gitignoré) qui déclare le
+# chemin du SDK Android (sdk.dir), et éventuellement les clés du
+# plugin secrets. Il n'est ni dans le dépôt ni dans le ZIP GitHub.
+#
+# PAS BESOIN de le créer à la main : depuis le garde-fou de
+# settings.gradle.kts, Gradle le crée automatiquement au premier
+# build en détectant le SDK (ANDROID_HOME / ANDROID_SDK_ROOT,
+# puis emplacements standards).
+#
+# Ne l'éditer que si le build signale "SDK location not found" :
+# mettre le chemin affiché dans Android Studio -> Tools -> SDK
+# Manager (barres obliques / recommandées).
+
+# Windows (Android Studio) :
+# sdk.dir=C:/Users/VOTRE_UTILISATEUR/AppData/Local/Android/Sdk
+
+# Linux / macOS (command-line tools) :
+# sdk.dir=/home/votre_utilisateur/Android/Sdk
