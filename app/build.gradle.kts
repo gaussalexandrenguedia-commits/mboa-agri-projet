@@ -11,13 +11,21 @@ android {
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
-    val backendBaseUrl = System.getenv("BACKEND_BASE_URL") ?: "http://10.0.2.2:8000/"
+    // URL backend injectée au build via BACKEND_BASE_URL.
+    // - Développement émulateur : http://10.0.2.2:8000/ (défaut)
+    // - Production Railway/Render : https://votre-api.up.railway.app/ (fourni par Martial)
+    // Le slash final est obligatoire pour Retrofit.
+    // Exemple : export BACKEND_BASE_URL="https://api-mboa-agri-production.up.railway.app/" && ./gradlew assembleDebug
+    val backendBaseUrlRaw = System.getenv("BACKEND_BASE_URL") ?: "http://10.0.2.2:8000/"
+    val backendBaseUrl = if (backendBaseUrlRaw.endsWith("/")) backendBaseUrlRaw else "$backendBaseUrlRaw/"
     buildConfigField("String", "BACKEND_BASE_URL", "\"$backendBaseUrl\"")
+    // Pour debug : afficher l'URL au build
+    println("MBOA AGRI - BACKEND_BASE_URL active: $backendBaseUrl")
     applicationId = "com.aistudio.mboaagri.tkplnz"
     minSdk = 24
     targetSdk = 36
-    versionCode = 1
-    versionName = "1.0"
+    versionCode = 2
+    versionName = "1.1.0-jwt-sync"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

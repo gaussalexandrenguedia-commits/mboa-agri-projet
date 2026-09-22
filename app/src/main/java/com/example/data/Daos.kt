@@ -44,11 +44,23 @@ interface UserDao {
     @Query("SELECT * FROM users WHERE username = :username LIMIT 1")
     suspend fun getUserByUsername(username: String): UserEntity?
 
+    @Query("SELECT * FROM users WHERE phoneNumber = :phone LIMIT 1")
+    suspend fun getUserByPhone(phone: String): UserEntity?
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertUser(user: UserEntity): Long
 
     @Query("UPDATE users SET commune = :commune, cultures = :cultures, langue = :langue, consentementAlertes = :consentementAlertes WHERE username = :username")
     suspend fun updateProfile(username: String, commune: String, cultures: String, langue: String, consentementAlertes: Boolean)
+
+    @Query("UPDATE users SET commune = :commune, communeCode = :communeCode, cultures = :cultures, langue = :langue, consentementAlertes = :consentementAlertes WHERE username = :username")
+    suspend fun updateProfileWithCode(username: String, commune: String, communeCode: String, cultures: String, langue: String, consentementAlertes: Boolean)
+
+    @Query("UPDATE users SET backendUserId = :backendId, lastToken = :token WHERE username = :username")
+    suspend fun updateBackendInfo(username: String, backendId: Int?, token: String)
+
+    @Query("SELECT * FROM users ORDER BY id DESC LIMIT 1")
+    suspend fun getLastUser(): UserEntity?
 }
 
 @Dao

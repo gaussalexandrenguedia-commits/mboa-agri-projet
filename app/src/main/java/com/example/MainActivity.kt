@@ -23,6 +23,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Initialiser ApiClient avec le contexte applicatif (TokenManager + BackendConfig)
+        com.example.api.ApiClient.init(this)
+        com.example.api.ApiClient.rebuild()
         // Filet de sécurité : rejouer les scans PENDING/FAILED dès que le réseau
         // revient, même si l'agriculteur n'a pas scanné depuis le dernier échec.
         enqueuePeriodicScanSync(this)

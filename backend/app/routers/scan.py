@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user
 from app.crud.commune import get_commune_by_code
+from app.crud.diagnostic import create_diagnostic
 from app.crud.scan import (
     create_or_get_scan,
     get_scan_by_id,
@@ -84,7 +85,39 @@ def upload_scan(
         longitude=data.longitude,
     )
 
-    if result.status == "already_synced":
+    # Brancher les scans offline sur diagnostics (table analytique commune)
+    # pour que le même flux serve online et offline, et préparer les alertes
+    if result.status == "created":
+        try:
+            create_diagnostic(
+                db=db,
+                user_id=current_user.id,
+                local_id=data.local_id,
+                pathology_id=data.pathology_id,
+                commune_id=commune_id,
+                plant_name=data.plant_name.strip(),
+                disease_name=data.disease_name.strip(),
+                confidence=data.confidence,
+                symptoms=data.symptoms.strip(),
+                treatment_local=data.treatment_local.strip(),
+                treatment_chemical=data.treatment_chemical.strip(),
+                timestamp=data.timestamp,
+                hors_ligne=data.hors_ligne,
+                latitude=data.latitude,
+                longitude=data.longitude,
+                image_url=None,  # offline sans image, nullable
+                severity_detected=None,
+                severity_default=None,
+                validation_status="PENDING_REVIEW" if data.hors_ligne else "AI_ONLY",
+            )
+            db.commit()
+            db.refresh(result.scan)
+        except Exception:
+            db.rollback()
+            # Ne pas bloquer le retour du scan même si diagnostic échoue
+            # Le scan historique reste enregistré
+            pass
+    else:
         response.status_code = status.HTTP_200_OK
 
     payload = ScanResponse.model_validate(

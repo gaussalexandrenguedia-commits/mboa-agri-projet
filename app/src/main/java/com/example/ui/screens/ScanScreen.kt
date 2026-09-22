@@ -308,7 +308,9 @@ fun ScanScreen(
                                                     val outputStream = ByteArrayOutputStream()
                                                     bitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream)
                                                     val base64Image = Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP)
-                                                    viewModel.runLiveDiagnostic(
+                                                    // Nouveau flux : backend /api/scans/diagnose si JWT présent, sinon fallback local
+                                                    viewModel.runLiveDiagnosticWithBackend(
+                                                        imageFile = file,
                                                         base64Image = base64Image,
                                                         mimeType = "image/jpeg",
                                                         latitude = lat,
@@ -323,13 +325,14 @@ fun ScanScreen(
                                             } catch (e: Exception) {
                                                 Log.e("ScanScreen", "Decoder/compress failure", e)
                                                 val coords = getCurrentLocation(context)
-                                                viewModel.runLiveDiagnostic(
+                                                viewModel.runLiveDiagnosticWithBackend(
+                                                    imageFile = file,
                                                     latitude = coords?.first,
                                                     longitude = coords?.second
                                                 )
                                             }
                                         }
- 
+
                                         override fun onError(exception: ImageCaptureException) {
                                             Log.e("ScanScreen", "Image capture fail", exception)
                                             val coords = getCurrentLocation(context)

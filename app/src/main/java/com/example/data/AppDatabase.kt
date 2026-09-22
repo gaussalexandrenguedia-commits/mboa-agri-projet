@@ -16,7 +16,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ForumPostEntity::class,
         ForumCommentEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -37,6 +37,15 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE users ADD COLUMN phoneNumber TEXT NOT NULL DEFAULT ''")
+                database.execSQL("ALTER TABLE users ADD COLUMN communeCode TEXT NOT NULL DEFAULT ''")
+                database.execSQL("ALTER TABLE users ADD COLUMN backendUserId INTEGER")
+                database.execSQL("ALTER TABLE users ADD COLUMN lastToken TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         @Volatile private var INSTANCE: AppDatabase? = null
 
         fun getDatabase(context: Context): AppDatabase = INSTANCE ?: synchronized(this) {
@@ -44,7 +53,7 @@ abstract class AppDatabase : RoomDatabase() {
                 context.applicationContext,
                 AppDatabase::class.java,
                 "mboa_agri_db"
-            ).addMigrations(MIGRATION_3_4).fallbackToDestructiveMigration(true).build()
+            ).addMigrations(MIGRATION_3_4, MIGRATION_4_5).fallbackToDestructiveMigration(false).build()
                 .also { INSTANCE = it }
         }
     }
