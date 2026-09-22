@@ -202,6 +202,14 @@ Prérequis :
 1. JDK 17+
 2. SDK Android plateforme 36 + Build Tools 36
 
+**`local.properties` (créé automatiquement)** : ce fichier local (gitignoré) déclare le
+chemin du SDK Android (`sdk.dir`). Il n'est pas dans le dépôt ni dans le ZIP GitHub :
+au premier build, le garde-fou de [`settings.gradle.kts`](settings.gradle.kts) le crée
+automatiquement en détectant le SDK (`ANDROID_HOME` / `ANDROID_SDK_ROOT`, puis
+emplacements standards). Si votre SDK est ailleurs, éditez-le :
+`sdk.dir=C:/chemin/vers/le/SDK` (template : [`local.properties.example`](local.properties.example),
+chemin visible dans **Android Studio → Tools → SDK Manager**).
+
 ```bash
 # Développement (émulateur)
 ./gradlew assembleDebug
