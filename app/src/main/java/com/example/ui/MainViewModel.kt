@@ -522,113 +522,46 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             isAnalyzing.value = true
             try {
-                val systemPrompt = if (base64Image != null && mimeType != null) {
-                    "Tu es un agronome d'élite spécialisé en agriculture camerounaise, tropicale et mondiale. " +
-                            "L'utilisateur a scanné une feuille via la caméra de l'IA. Analyse attentivement l'image de la feuille ou plante fourie. " +
-                            "Identifie la culture (par exemple: Cacao, Tomate, Manioc, Bananier, Caféier, Maïs, Igname, Macabo, Papayer, Manguier, Avocatier, Piment, Patate douce, etc.) et diagnostique précisément sa maladie phytosanitaire de façon réaliste. " +
-                            "Réponds STRICTEMENT sous forme d'un objet JSON valide contenant EXACTEMENT ces clés et rien d'autre (ni explications extérieures, ni balises markdown additionnelles, juste l'accolade ouvrante et fermante JSON) : " +
-                            "{\n" +
-                            "  \"plantName\": \"Nom de la plante/culture identifiée automatiquement par l'IA (ex: Cacao, Manioc, etc.)\",\n" +
-                            "  \"diseaseName\": \"Nom de la maladie réelle identifiée en français et son agent pathogène\",\n" +
-                            "  \"confidence\": 95,\n" +
-                            "  \"symptoms\": \"Symptômes réels précis observés (taches, couleur, chancres...)\",\n" +
-                            "  \"treatmentLocal\": \"Description détaillée d'étapes pour préparer un traitement local écologique (ex: gousses d'ail écrasées, purin de neem, décoction de cendre de bois)\",\n" +
-                            "  \"treatmentChemical\": \"Nom du produit ou molécule chimique agréée au Cameroun si de force majeure\"\n" +
-                            "}\n"
-                } else if (cropName.isNotBlank()) {
-                    "Tu es un agronome d'élite spécialisé en agriculture camerounaise et mondiale. " +
-                            "Génère un diagnostic phytosanitaire réaliste pour une feuille de $cropName affectée. " +
-                            "Sélectionne au hasard ou intelligemment l'une des maladies courantes réelles du $cropName au Cameroun rattachée au climat tropical africain. " +
-                            "Réponds STRICTEMENT sous forme d'un objet JSON valide contenant EXACTEMENT ces clés et rien d'autre (ni explications extérieures, ni balises markdown additionnelles, juste l'accolade ouvrante et fermante JSON) : " +
-                            "{\n" +
-                            "  \"plantName\": \"$cropName\",\n" +
-                            "  \"diseaseName\": \"Nom de la maladie réelle en français et son agent pathogène\",\n" +
-                            "  \"confidence\": 95,\n" +
-                            "  \"symptoms\": \"Symptômes réels précis observés (taches, couleur, chancres...)\",\n" +
-                            "  \"treatmentLocal\": \"Description détaillée d'étapes pour préparer un traitement local écologique (ex: gousses d'ail écrasées, purin de neem, décoction de cendre de bois)\",\n" +
-                            "  \"treatmentChemical\": \"Nom du produit ou molécule chimique agréée au Cameroun si de force majeure\"\n" +
-                            "}\n"
-                } else {
-                    "Tu es un agronome d'élite spécialisé en agriculture camerounaise, tropicale et mondiale. " +
-                            "Puisque l'utilisateur a scanné une feuille via la caméra de l'IA sans spécifier de culture au préalable, tu dois identifier la culture toi-même parmi TOUTES les cultures existantes utiles (ex: Cacao, Tomate, Manioc, Bananier, Caféier, Maïs, Igname, Macabo, Papayer, Manguier, Avocatier, Piment, Patate douce, etc.) de façon réaliste. " +
-                            "Sélectionne au hasard ou intelligemment l'une des cultures et l'une de ses maladies phytosanitaires réelles et courantes au Cameroun. " +
-                            "Réponds STRICTEMENT sous forme d'un objet JSON valide contenant EXACTEMENT ces clés et rien d'autre (ni explications extérieures, ni balises markdown additionnelles, juste l'accolade ouvrante et fermante JSON) : " +
-                            "{\n" +
-                            "  \"plantName\": \"Nom de la plante/culture identifiée automatiquement par l'IA\",\n" +
-                            "  \"diseaseName\": \"Nom de la maladie réelle en français et son agent pathogène\",\n" +
-                            "  \"confidence\": 95,\n" +
-                            "  \"symptoms\": \"Symptômes réels précis observés (taches, couleur, chancres...)\",\n" +
-                            "  \"treatmentLocal\": \"Description détaillée d'étapes pour préparer un traitement local écologique (ex: gousses d'ail écrasées, purin de neem, décoction de cendre de bois)\",\n" +
-                            "  \"treatmentChemical\": \"Nom du produit ou molécule chimique agréée au Cameroun si de force majeure\"\n" +
-                            "}\n"
-                }
-
-                val userPrompt = if (base64Image != null && mimeType != null) {
-                    "Analyse l'image ci-jointe pour identifier la plante et diagnostiquer la maladie."
-                } else if (cropName.isNotBlank()) {
-                    "Génère le diagnostic de la plante $cropName au format JSON."
-                } else {
-                    "Identifie une culture camerounaise ou tropicale affectée par une maladie courante et génère son diagnostic au format JSON."
-                }
-
-                var aiResponse = ""
-                try {
-                    aiResponse = withContext(Dispatchers.IO) {
-                        callGeminiApi(
-                            systemPrompt = systemPrompt,
-                            userPrompt = userPrompt,
-                            conversation = emptyList(),
-                            base64Image = base64Image,
-                            mimeType = mimeType
-                        )
+                // No image means no defensible diagnosis. Gemini is an online API;
+                // when unavailable, persist only an explicit pending state, never a guessed disease.
+                val hasImage = !base64Image.isNullOrBlank() && !mimeType.isNullOrBlank()
+                val systemPrompt = "Tu es un agronome. Analyse uniquement l'image fournie; ne devine jamais une maladie. " +
+                    "Si les éléments sont insuffisants, indique que le diagnostic est indéterminé. " +
+                    "Réponds en JSON avec plantName, diseaseName, confidence (0-100), symptoms, treatmentLocal, treatmentChemical."
+                val userPrompt = "Analyse la photo de la plante ${cropName.ifBlank { "inconnue" }}. Ne recommande aucun traitement chimique sans identification fiable."
+                val aiResponse = if (hasImage) {
+                    withContext(Dispatchers.IO) {
+                        callGeminiApi(systemPrompt, userPrompt, base64Image = base64Image, mimeType = mimeType)
                     }
-                } catch (e: Exception) {
-                    Log.e("MainViewModel", "Gemini API call failed, falling back to local database", e)
-                }
+                } else ""
 
-                var lookupPlant = if (cropName.isNotBlank()) cropName else "Plante Inconnue"
-                var lookupDisease = "Maladie non identifiée"
-                var lookupConfidence = (85..98).random()
-                var lookupSymptoms = "Symptômes atypiques non identifiés."
-                var lookupLocal = "Veuillez nettoyer l'arbre et maximiser la ventilation."
-                var lookupChemical = "Consultez un vulgarisateur agricole local."
-
+                var lookupPlant = cropName.ifBlank { "Culture non identifiée" }
+                var lookupDisease = "Analyse en attente de réseau"
+                var lookupConfidence = 0
+                var lookupSymptoms = "Aucun diagnostic n'a été établi. Reconnectez-vous et relancez l'analyse de la photo."
+                var lookupLocal = "Aucun traitement recommandé avant confirmation du diagnostic."
+                var lookupChemical = "Ne pas appliquer de produit chimique sur la base de cette analyse incomplète."
                 var parsedSuccessfully = false
-                if (aiResponse.isNotBlank()) {
+                if (aiResponse.isNotBlank() && !aiResponse.contains("Mode hors connexion", ignoreCase = true)) {
                     try {
-                        var cleaned = aiResponse.trim()
-                        if (cleaned.startsWith("```json")) {
-                            cleaned = cleaned.substringAfter("```json").substringBeforeLast("```").trim()
-                        } else if (cleaned.startsWith("```")) {
-                            cleaned = cleaned.substringAfter("```").substringBeforeLast("```").trim()
-                        }
+                        val cleaned = aiResponse.trim()
+                            .removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
                         val jsonObject = org.json.JSONObject(cleaned)
-                        lookupPlant = jsonObject.optString("plantName", lookupPlant)
-                        lookupDisease = jsonObject.optString("diseaseName", "Inconnue")
-                        lookupConfidence = jsonObject.optInt("confidence", (85..98).random())
-                        lookupSymptoms = jsonObject.optString("symptoms", lookupSymptoms)
-                        lookupLocal = jsonObject.optString("treatmentLocal", lookupLocal)
-                        lookupChemical = jsonObject.optString("treatmentChemical", lookupChemical)
-                        parsedSuccessfully = true
+                        val confidence = jsonObject.optInt("confidence", 0).coerceIn(0, 100)
+                        val disease = jsonObject.optString("diseaseName", "").trim()
+                        if (disease.isNotBlank() && disease != "Inconnue" && confidence > 0) {
+                            lookupPlant = jsonObject.optString("plantName", lookupPlant)
+                            lookupDisease = disease
+                            lookupConfidence = confidence
+                            lookupSymptoms = jsonObject.optString("symptoms", lookupSymptoms)
+                            lookupLocal = jsonObject.optString("treatmentLocal", lookupLocal)
+                            lookupChemical = jsonObject.optString("treatmentChemical", lookupChemical)
+                            parsedSuccessfully = true
+                        }
                     } catch (jsonEx: Exception) {
-                        Log.e("MainViewModel", "JSON parsing failed on: $aiResponse", jsonEx)
+                        Log.w("MainViewModel", "Gemini response is not a usable diagnosis", jsonEx)
                     }
                 }
-
-                if (!parsedSuccessfully) {
-                    val fallbackItem = if (cropName.isNotBlank()) {
-                        CropDiagnostics.items.firstOrNull { it.plantName.equals(cropName, ignoreCase = true) }
-                            ?: CropDiagnostics.items.random()
-                    } else {
-                        CropDiagnostics.items.random()
-                    }
-                    lookupPlant = fallbackItem.plantName
-                    lookupDisease = fallbackItem.diseaseName
-                    lookupSymptoms = fallbackItem.symptoms
-                    lookupLocal = fallbackItem.treatmentLocal
-                    lookupChemical = fallbackItem.treatmentChemical
-                }
-
                 val newScan = ScanResultEntity(
                     plantName = lookupPlant,
                     diseaseName = lookupDisease,
@@ -638,7 +571,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     treatmentChemical = lookupChemical,
                     timestamp = System.currentTimeMillis(),
                     latitude = latitude,
-                    longitude = longitude
+                    longitude = longitude,
+                    syncStatus = if (parsedSuccessfully) SyncStatus.PENDING else SyncStatus.FAILED
                 )
 
                 val insertedId = withContext(Dispatchers.IO) {

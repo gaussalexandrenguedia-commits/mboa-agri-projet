@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.crud.alert import create_alert, get_alerts
+from app.core.dependencies import get_admin_user
+from app.models.user import User
 from app.crud.commune import get_commune_by_id, get_commune_by_name
 from app.database import get_db
 from app.models.pathology import Pathology
@@ -99,6 +101,7 @@ def read_alerts(
 def create_new_alert(
     payload: AlertCreateRequest,
     db: Session = Depends(get_db),
+    _: User = Depends(get_admin_user),
 ) -> AlertResponse:
     commune = get_commune_by_id(
         db,
