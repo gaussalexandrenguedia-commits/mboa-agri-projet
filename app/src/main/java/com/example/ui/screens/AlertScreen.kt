@@ -50,326 +50,44 @@ fun AlertScreen(
     viewModel: MainViewModel,
     onNavigateBack: () -> Unit
 ) {
-    val context = LocalContext.current
     val isEnglish by viewModel.currentLanguageIsEnglish.collectAsState()
-    fun t(key: String) = Translations.translate(key, isEnglish)
-
-    val activeAlerts by viewModel.activeAlerts.collectAsState()
-    val backendAlerts by viewModel.backendAlerts.collectAsState()
-    val currentLat by viewModel.currentLatitude.collectAsState()
-    val currentLng by viewModel.currentLongitude.collectAsState()
-    val profile by viewModel.currentProfile.collectAsState()
-
-    var selectedTab by remember { mutableStateOf(0) }
-    var selectedAlertForReport by remember { mutableStateOf<ZoneAlert?>(null) }
-    var showReportDialog by remember { mutableStateOf(false) }
-
-    var reportCrop by remember { mutableStateOf("") }
-    var reportSymptom by remember { mutableStateOf("") }
-    var reportSector by remember { mutableStateOf("Foumbot / Ouest Cameroun") }
-
-    // Charger les alertes backend au démarrage avec le code commune du profil
-    LaunchedEffect(Unit) {
-        viewModel.loadCurrentUserProfile()
-        // Délai court pour laisser le profil se charger
-        kotlinx.coroutines.delay(500)
-        val code = profile?.communeCode?.takeIf { it.isNotBlank() }
-            ?: com.example.api.TokenManager.getInstance(context).getCommuneCode()
-        viewModel.fetchBackendAlerts(communeCode = code)
-    }
-    LaunchedEffect(profile) {
-        profile?.communeCode?.takeIf { it.isNotBlank() }?.let { code ->
-            viewModel.fetchBackendAlerts(communeCode = code)
-        }
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Column {
-                        Text(
-                            text = if (isEnglish) "Zone Phytosanitary Alerts" else "Alertes Phytosanitaires de Zone",
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = if (isEnglish) "Territorial Outbreak Monitoring & Prevention" else "Surveillance & Prévention des Foyers",
-                            fontSize = 10.sp,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
-                    }
-                },
+                title = { Text(if (isEnglish) "Territorial alerts" else "Alertes phytosanitaires") },
                 navigationIcon = {
-                    IconButton(
-                        onClick = onNavigateBack,
-                        modifier = Modifier.testTag("alert_back_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
+                    IconButton(onClick = onNavigateBack, modifier = Modifier.testTag("alert_back_button")) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = if (isEnglish) "Back" else "Retour")
                     }
-                },
-                actions = {
-                    IconButton(
-                        onClick = {
-                            val textToShare = buildString {
-                                append("⚠️ ALERTE ROUGE PHYTOSANITAIRE MBOA AGRI ⚠️\n")
-                                append("Secteur : Foumbot / Ouest Cameroun\n")
-                                append("Alerte active : ${activeAlerts.size} foyers détectés.\n")
-                                activeAlerts.forEach { a ->
-                                    append("• Culture: ${a.plantName} | Maladie: ${a.diseaseName} (${a.casesCount} cas)\n")
-                                }
-                                append("\nProtocole de prévention :\n1. Arrachage immédiat des feuilles malades\n2. Traitement local au purin de neem/cendre\n3. Désinfection des outils agricoles\n\nPartagé via l'application MBOA AGRI.")
-                            }
-                            val intent = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_SUBJECT, "Alerte Phytosanitaire MBOA AGRI")
-                                putExtra(Intent.EXTRA_TEXT, textToShare)
-                            }
-                            context.startActivity(Intent.createChooser(intent, t("share_via")))
-                        },
-                        modifier = Modifier.testTag("alert_share_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Share,
-                            contentDescription = "Share Alert Report",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+                }
             )
         }
-    ) { innerPadding ->
+    ) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
+            modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            // Category Navigation Tabs
-            TabRow(
-                selectedTabIndex = selectedTab,
-                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                contentColor = MaterialTheme.colorScheme.primary
-            ) {
-                Tab(
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
-                    text = {
-                        Text(
-                            text = if (isEnglish) "Foyers Actifs" else "Foyers Actifs",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
-                        )
-                    },
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Default.Warning,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                )
-                Tab(
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
-                    text = {
-                        Text(
-                            text = if (isEnglish) "Prévention" else "Prévention",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
-                        )
-                    },
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Default.Shield,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                )
-                Tab(
-                    selected = selectedTab == 2,
-                    onClick = { selectedTab = 2 },
-                    text = {
-                        Text(
-                            text = if (isEnglish) "Signaler" else "Signaler",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
-                        )
-                    },
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Default.AddAlert,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                )
-            }
-
-            when (selectedTab) {
-                0 -> ActiveAlertsTab(
-                    alerts = activeAlerts,
-                    currentLat = currentLat,
-                    currentLng = currentLng,
-                    isEnglish = isEnglish,
-                    onSelectAlert = { alert ->
-                        selectedAlertForReport = alert
-                        showReportDialog = true
-                    },
-                    onRefreshBackend = {
-                        val code = profile?.communeCode?.takeIf { it.isNotBlank() }
-                            ?: com.example.api.TokenManager.getInstance(context).getCommuneCode()
-                        viewModel.fetchBackendAlerts(communeCode = code)
-                    }
-                )
-                1 -> PreventionGuideTab(isEnglish = isEnglish)
-                2 -> ReportOutbreakTab(
-                    isEnglish = isEnglish,
-                    crop = reportCrop,
-                    onCropChange = { reportCrop = it },
-                    symptom = reportSymptom,
-                    onSymptomChange = { reportSymptom = it },
-                    sector = reportSector,
-                    onSectorChange = { reportSector = it },
-                    onSubmit = {
-                        if (reportCrop.isNotBlank() && reportSymptom.isNotBlank()) {
-                            viewModel.runLiveDiagnostic(
-                                cropName = reportCrop,
-                                latitude = currentLat,
-                                longitude = currentLng
-                            )
-                            Toast.makeText(
-                                context,
-                                if (isEnglish) "Alert report submitted & synchronized!" else "Alerte de foyer transmise et synchronisée !",
-                                Toast.LENGTH_LONG
-                            ).show()
-                            reportCrop = ""
-                            reportSymptom = ""
-                            selectedTab = 0
-                        } else {
-                            Toast.makeText(
-                                context,
-                                if (isEnglish) "Please enter crop and symptom details" else "Veuillez renseigner la culture et les symptômes",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    }
-                )
-            }
+            Icon(Icons.Default.Build, contentDescription = null, modifier = Modifier.size(56.dp),
+                tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.height(20.dp))
+            Text(
+                text = if (isEnglish) "Under development" else "Fonctionnalité en cours de développement",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                text = if (isEnglish)
+                    "Territorial alerts are temporarily unavailable. Do not rely on this screen for crop-protection decisions."
+                else
+                    "Les alertes territoriales ne sont pas encore disponibles. Ne prenez pas de décision phytosanitaire sur la base de cette fonctionnalité.",
+                style = MaterialTheme.typography.bodyLarge,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
-    }
-
-    // Modal Sheet / Dialog for Alert Details & Screenshot Card Preview
-    if (showReportDialog && selectedAlertForReport != null) {
-        val alert = selectedAlertForReport!!
-        AlertDialog(
-            onDismissRequest = { showReportDialog = false },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val shareText = "⚠️ FICHE D'ALERTE OFFICELLE MBOA AGRI ⚠️\nPlante : ${alert.plantName}\nMaladie : ${alert.diseaseName}\nCas recensés : ${alert.casesCount}\nCoordonnées : Lat ${alert.latitude}, Lng ${alert.longitude}\nSecteur : Foumbot\n\nConsignes sanitaires : Mettre la parcelle en quarantaine et appliquer immédiatement le purin de neem/cendre de bois."
-                        val intent = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_TEXT, shareText)
-                        }
-                        context.startActivity(Intent.createChooser(intent, "Partager la Fiche d'Alerte"))
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Share,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = if (isEnglish) "Share Card / Capture" else "Partager / Capture d'écran",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showReportDialog = false }) {
-                    Text(text = if (isEnglish) "Close" else "Fermer")
-                }
-            },
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Warning,
-                        contentDescription = null,
-                        tint = SeverityRed,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = if (isEnglish) "Outbreak Report Badge" else "Fiche d'Alerte de Foyer",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
-                    )
-                }
-            },
-            text = {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(SeverityRed)
-                                .padding(horizontal = 8.dp, vertical = 3.dp)
-                        ) {
-                            Text(
-                                text = "NIVEAU ROUGE • 3+ CAS DÉTECTÉS",
-                                color = Color.White,
-                                fontSize = 9.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Plante : ${alert.plantName}",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
-                        )
-                        Text(
-                            text = "Maladie : ${alert.diseaseName}",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 13.sp,
-                            color = SeverityRed
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Foyer : Coordonnées GPS (${((alert.latitude * 1000).toInt() / 1000.0)}, ${((alert.longitude * 1000).toInt() / 1000.0)})",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = alert.message,
-                            fontSize = 12.sp,
-                            lineHeight = 15.sp
-                        )
-                    }
-                }
-            }
-        )
     }
 }
 

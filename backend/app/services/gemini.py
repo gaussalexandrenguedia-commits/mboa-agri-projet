@@ -51,6 +51,24 @@ class GeminiService:
             f"models/{self.model}:generateContent"
         )
 
+    def generate_text(
+        self, *, contents: list[dict[str, Any]], system_instruction: str = "",
+        generation_config: dict[str, Any] | None = None,
+    ) -> str:
+        body: dict[str, Any] = {"contents": contents}
+        if system_instruction:
+            body["systemInstruction"] = {"parts": [{"text": system_instruction}]}
+        safe_config = {k: v for k, v in (generation_config or {}).items()
+                       if k in {"temperature", "maxOutputTokens", "topP", "topK"}}
+        body["generationConfig"] = {"temperature": 0.5, "maxOutputTokens": 1024, **safe_config}
+        try:
+            with httpx.Client(timeout=45.0) as client:
+                response = client.post(self.endpoint, params={"key": self.api_key}, json=body)
+                response.raise_for_status()
+            return self._extract_text(response.json())
+        except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
+            raise GeminiServiceError("La réponse Gemini est indisponible.") from exc
+
     def diagnose(
         self,
         *,

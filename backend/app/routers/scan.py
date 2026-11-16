@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user
 from app.crud.commune import get_commune_by_code
+from app.models.diagnostic import Diagnostic
 from app.crud.diagnostic import create_diagnostic
 from app.crud.scan import (
     create_or_get_scan,
@@ -86,7 +87,7 @@ def upload_scan(
     )
 
     # Brancher les scans offline sur diagnostics (table analytique commune)
-    # pour que le même flux serve online et offline, et préparer les alertes
+    # pour que le même flux serve online et offline.
     if result.status == "created":
         try:
             create_diagnostic(

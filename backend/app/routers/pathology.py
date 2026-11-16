@@ -8,7 +8,7 @@ from fastapi import (
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, get_admin_user
 from app.crud.pathology import (
     create_pathology,
     get_pathologies,
@@ -118,7 +118,7 @@ def read_pathology(
 def create_new_pathology(
     payload: PathologyCreateRequest,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: User = Depends(get_admin_user),
 ) -> PathologyResponse:
     existing = get_pathology_by_code(
         db,
@@ -163,7 +163,7 @@ def update_existing_pathology(
     pathology_id: int,
     payload: PathologyUpdateRequest,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_user),
+    _: User = Depends(get_admin_user),
 ) -> PathologyResponse:
     pathology = get_pathology_by_id(
         db,

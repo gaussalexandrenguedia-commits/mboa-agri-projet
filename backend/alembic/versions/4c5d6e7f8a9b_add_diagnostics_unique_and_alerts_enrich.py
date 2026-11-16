@@ -24,37 +24,34 @@ def upgrade() -> None:
         ["user_id", "local_id", "hors_ligne"],
     )
 
-    # Enrichir alerts avec cycle de vie (recommandé dans le rapport)
-    # Vérifier si table alerts existe
-    try:
-        op.add_column(
-            "alerts",
-            sa.Column("period_start", sa.DateTime(timezone=True), nullable=True),
+    # L'ancienne version tentait un ALTER sur alerts même quand la table
+    # n'existait pas, ce qui laisse PostgreSQL en transaction aborted. La
+    # migration 6b7c8d9e0f1a crée désormais la table complète. On enrichit
+    # uniquement les installations historiques qui possèdent déjà alerts.
+    inspector = sa.inspect(op.get_bind())
+    if inspector.has_table("alerts"):
+        existing_columns = {column["name"] for column in inspector.get_columns("alerts")}
+        columns = (
+            ("period_start", sa.DateTime(timezone=True), True),
+            ("period_end", sa.DateTime(timezone=True), True),
+            ("last_scan_at", sa.DateTime(timezone=True), True),
+            ("status", sa.String(20), False),
+            ("resolved_at", sa.DateTime(timezone=True), True),
         )
-        op.add_column(
-            "alerts",
-            sa.Column("period_end", sa.DateTime(timezone=True), nullable=True),
-        )
-        op.add_column(
-            "alerts",
-            sa.Column("last_scan_at", sa.DateTime(timezone=True), nullable=True),
-        )
-        op.add_column(
-            "alerts",
-            sa.Column("status", sa.String(20), nullable=False, server_default="ACTIVE"),
-        )
-        op.add_column(
-            "alerts",
-            sa.Column("resolved_at", sa.DateTime(timezone=True), nullable=True),
-        )
-        op.create_index(
-            "ix_alerts_commune_pathology_status",
-            "alerts",
-            ["commune_id", "pathology_id", "status"],
-        )
-    except Exception:
-        # Si table alerts n'existe pas encore ou colonnes déjà présentes, ignorer
-        pass
+        for name, column_type, nullable in columns:
+            if name not in existing_columns:
+                op.add_column(
+                    "alerts",
+                    sa.Column(name, column_type, nullable=nullable,
+                              **({"server_default": "ACTIVE"} if name == "status" else {})),
+                )
+        existing_indexes = {index["name"] for index in inspector.get_indexes("alerts")}
+        if "ix_alerts_commune_pathology_status" not in existing_indexes:
+            op.create_index(
+                "ix_alerts_commune_pathology_status",
+                "alerts",
+                ["commune_id", "pathology_id", "status"],
+            )
 
 
 def downgrade() -> None:

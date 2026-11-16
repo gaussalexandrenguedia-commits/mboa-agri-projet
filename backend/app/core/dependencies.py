@@ -39,3 +39,9 @@ def get_current_user(
     if user is None or not user.is_active:
         raise unauthorized
     return user
+
+
+def get_admin_user(user: User = Depends(get_current_user)) -> User:
+    if not user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Droits administrateur requis.")
+    return user
