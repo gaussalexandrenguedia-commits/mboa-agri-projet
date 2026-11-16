@@ -9,6 +9,7 @@ from fastapi import (
     UploadFile,
     status,
 )
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user
@@ -16,10 +17,11 @@ from app.crud.commune import get_commune_by_code
 from app.crud.diagnostic import create_diagnostic
 from app.database import get_db
 from app.models.user import User
+from app.models.diagnostic import Diagnostic
 from app.schemas.diagnostic import DiagnosticResponse
-from app.services.cloudinary import (
-    CloudinaryService,
-    CloudinaryServiceError,
+from app.services.supabase_storage import (
+    SupabaseStorageService,
+    SupabaseStorageError,
 )
 from app.services.diagnostic import (
     get_catalog_for_plant,
@@ -150,17 +152,15 @@ async def diagnose_scan(
             plant_name,
         )
 
-        # 3. Stockage permanent sur Cloudinary
-        cloudinary = CloudinaryService()
-
-        image_url = (
-            cloudinary.upload_diagnostic_image(
-                image_bytes=image_bytes,
-                filename=image.filename,
-                mime_type=image.content_type,
-                user_id=current_user.id,
-            )
+        # 3. Stockage privé Supabase; la base garde le chemin, pas un lien signé éphémère.
+        storage = SupabaseStorageService()
+        image_path = storage.upload_diagnostic_image(
+            image_bytes=image_bytes,
+            filename=image.filename,
+            mime_type=image.content_type,
+            user_id=current_user.id,
         )
+        image_view_url = storage.create_signed_url(image_path)
 
         # 4. Enregistrement du diagnostic
         diagnostic = create_diagnostic(
@@ -181,7 +181,7 @@ async def diagnose_scan(
             hors_ligne=False,
             latitude=latitude,
             longitude=longitude,
-            image_url=image_url,
+            image_url=image_path,
             severity_detected=(
                 resolution.severity_detected
             ),
@@ -198,7 +198,7 @@ async def diagnose_scan(
 
     except (
         GeminiServiceError,
-        CloudinaryServiceError,
+        SupabaseStorageError,
     ) as exc:
         db.rollback()
 
@@ -238,7 +238,7 @@ async def diagnose_scan(
             if diagnostic.longitude is not None
             else None
         ),
-        image_url=diagnostic.image_url,
+        image_url=image_view_url,
         hors_ligne=diagnostic.hors_ligne,
         severity_detected=(
             diagnostic.severity_detected
@@ -253,3 +253,23 @@ async def diagnose_scan(
             diagnostic.validation_status
         ),
     )
+
+
+@router.get("/{diagnostic_id}/image")
+def get_diagnostic_image(
+    diagnostic_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return a short-lived signed URL for the caller's private scan image."""
+    diagnostic = db.query(Diagnostic).filter(
+        Diagnostic.id == diagnostic_id,
+        Diagnostic.user_id == current_user.id,
+    ).first()
+    if diagnostic is None or not diagnostic.image_url:
+        raise HTTPException(status_code=404, detail="Photo de diagnostic introuvable.")
+    try:
+        signed_url = SupabaseStorageService().create_signed_url(diagnostic.image_url)
+    except SupabaseStorageError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return RedirectResponse(url=signed_url, status_code=status.HTTP_307_TEMPORARY_REDIRECT)

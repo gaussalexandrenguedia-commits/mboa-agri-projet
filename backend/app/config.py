@@ -16,10 +16,9 @@ class Settings(BaseSettings):
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-2.0-flash"
 
-    cloudinary_cloud_name: str | None = None
-    cloudinary_api_key: str | None = None
-    cloudinary_api_secret: str | None = None
-    cloudinary_folder: str = "mboa_agri/diagnostics"
+    supabase_url: str | None = None
+    supabase_service_role_key: str | None = None
+    supabase_storage_bucket: str = "scan-images"
 
     @model_validator(mode="after")
     def validate_production_secrets(self):
