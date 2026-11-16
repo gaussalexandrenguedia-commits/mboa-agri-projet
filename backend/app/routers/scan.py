@@ -1,5 +1,3 @@
-from datetime import datetime, timezone
-
 from fastapi import (
     APIRouter,
     Depends,
@@ -9,12 +7,10 @@ from fastapi import (
     status,
 )
 from sqlalchemy.orm import Session
-from sqlalchemy import select, func
 
 from app.core.dependencies import get_current_user
 from app.crud.commune import get_commune_by_code
 from app.models.diagnostic import Diagnostic
-from app.models.territorial_alert import TerritorialAlert
 from app.crud.diagnostic import create_diagnostic
 from app.crud.scan import (
     create_or_get_scan,
@@ -91,7 +87,7 @@ def upload_scan(
     )
 
     # Brancher les scans offline sur diagnostics (table analytique commune)
-    # pour que le même flux serve online et offline, et préparer les alertes
+    # pour que le même flux serve online et offline.
     if result.status == "created":
         try:
             create_diagnostic(
@@ -116,43 +112,6 @@ def upload_scan(
                 validation_status="PENDING_REVIEW" if data.hors_ligne else "AI_ONLY",
             )
             db.commit()
-            # Créer/actualiser une alerte de commune après au moins 3 cas
-            # confirmables/catalogués sur les 7 derniers jours.
-            if pathology_id := data.pathology_id:
-                if commune_id is not None:
-                    since_ms = int((datetime.now(timezone.utc).timestamp() - 7 * 86400) * 1000)
-                    case_count = db.scalar(
-                        select(func.count(Diagnostic.id)).where(
-                            Diagnostic.pathology_id == pathology_id,
-                            Diagnostic.commune_id == commune_id,
-                            Diagnostic.timestamp >= since_ms,
-                            Diagnostic.confidence >= 50,
-                        )
-                    ) or 0
-                    if case_count >= 3:
-                        alert = db.scalar(
-                            select(TerritorialAlert).where(
-                                TerritorialAlert.commune_id == commune_id,
-                                TerritorialAlert.pathology_id == pathology_id,
-                                TerritorialAlert.status == "ACTIVE",
-                            ).order_by(TerritorialAlert.created_at.desc())
-                        )
-                        level = "URGENT" if case_count >= 10 else "ALERT"
-                        if alert is None:
-                            db.add(TerritorialAlert(
-                                commune_id=commune_id, pathology_id=pathology_id,
-                                scan_count=case_count, alert_level=level, status="ACTIVE",
-                                period_start=datetime.fromtimestamp(since_ms / 1000, timezone.utc),
-                                period_end=datetime.now(timezone.utc),
-                                last_scan_at=datetime.now(timezone.utc),
-                            ))
-                        else:
-                            alert.scan_count = case_count
-                            alert.alert_level = level
-                            alert.last_scan_at = datetime.now(timezone.utc)
-                            alert.period_start = datetime.fromtimestamp(since_ms / 1000, timezone.utc)
-                            alert.period_end = datetime.now(timezone.utc)
-                        db.commit()
             db.refresh(result.scan)
         except Exception:
             db.rollback()
