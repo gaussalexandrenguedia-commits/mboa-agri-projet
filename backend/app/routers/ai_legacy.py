@@ -1,56 +1,49 @@
-from fastapi import APIRouter, Depends
+"""Gemini-backed compatibility endpoint for agronomy chat and tutoring."""
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from typing import List, Optional
 
 from app.core.dependencies import get_current_user
 from app.models.user import User
+from app.services.gemini import GeminiService, GeminiServiceError
 
-router = APIRouter(
-    prefix="/api/ai",
-    tags=["AI Legacy Compat"],
-)
+router = APIRouter(prefix="/api/ai", tags=["AI"])
+
 
 class Part(BaseModel):
-    text: Optional[str] = None
+    text: str | None = None
+
 
 class Content(BaseModel):
-    parts: List[Part]
+    parts: list[Part]
+    role: str | None = None
+
 
 class GenerateRequest(BaseModel):
-    contents: List[Content]
-    systemInstruction: Optional[Content] = None
-    generationConfig: Optional[dict] = None
+    contents: list[Content]
+    systemInstruction: Content | None = None
+    generationConfig: dict[str, Any] | None = None
+
 
 @router.post("/generate")
-def generate_legacy(
-    payload: GenerateRequest,
-    current_user: User = Depends(get_current_user),
-):
-    """
-    Stub pour compatibilité avec les anciens APK qui appelaient POST /api/ai/generate
-    directement depuis l'app. Le nouveau flux doit utiliser POST /api/scans/diagnose
-    qui fait Gemini + Cloudinary + catalogue côté backend.
-
-    On retourne une réponse factice pour éviter un crash, mais on recommande
-    fortement de migrer vers /api/scans/diagnose.
-    """
-    # Extraire le dernier message utilisateur si possible
-    last_text = ""
-    if payload.contents:
-        last = payload.contents[-1]
-        if last.parts:
-            last_text = last.parts[0].text or ""
-
-    return {
-        "candidates": [
-            {
-                "content": {
-                    "parts": [
-                        {
-                            "text": f"Mode compatibilité : l'IA backend legacy est désactivée. Utilisez POST /api/scans/diagnose avec image. Requête reçue : {last_text[:200]}"
-                        }
-                    ]
-                }
-            }
-        ]
-    }
+def generate(payload: GenerateRequest, _: User = Depends(get_current_user)):
+    if not payload.contents:
+        raise HTTPException(status_code=422, detail="La conversation est vide.")
+    try:
+        contents = []
+        # Older Android payloads omit Gemini roles. Chat history is emitted in
+        # alternating assistant/user order and starts with an assistant greeting.
+        for index, item in enumerate(payload.contents):
+            role = item.role or ("model" if len(payload.contents) > 1 and index % 2 == 0 else "user")
+            if role not in {"user", "model"}:
+                role = "user"
+            contents.append({"role": role, "parts": [part.model_dump(exclude_none=True) for part in item.parts]})
+        text = GeminiService().generate_text(
+            contents=contents,
+            system_instruction="\n".join(p.text or "" for p in (payload.systemInstruction.parts if payload.systemInstruction else [])),
+            generation_config=payload.generationConfig,
+        )
+    except GeminiServiceError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    return {"candidates": [{"content": {"parts": [{"text": text}]}}]}
