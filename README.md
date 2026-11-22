@@ -12,9 +12,9 @@ Mboa Agri est une application Android destinée à accompagner les agriculteurs 
 | Historique hors connexion | Les résultats restent consultables sans réseau. |
 | Synchronisation backend | Les scans PENDING/FAILED sont envoyés automatiquement avec WorkManager (envoi immédiat + filet de sécurité périodique toutes les 15 minutes) vers POST /api/scans avec Bearer JWT. |
 | Authentification JWT | Inscription POST /auth/register (username, phone_number, password) → connexion POST /auth/login → token stocké dans TokenManager. |
-| Alertes territoriales | GET /alerts?commune_code=CM-BFS-02 (backend) + détection locale 3 cas / 7 jours / 10km. |
+| Alertes territoriales | GET /api/alerts?commune_code=CM-001 (backend) + détection locale 3 cas / 7 jours / 10km. |
 | Assistant agronomique | Les requêtes d’IA passent par le backend, sans clé Gemini dans l’APK. |
-| Profil utilisateur | Commune, code commune stable (CM-BFS-02), cultures, langue, consentement alertes, téléphone, saisis à l’inscription et modifiables dans Paramètres. |
+| Profil utilisateur | Commune choisie dans la liste officielle `GET /api/communes` (code `commune_code`), cultures, langue, consentement alertes, téléphone, saisis à l’inscription et modifiables dans Paramètres. |
 | Code couleur strict | Vert = sain, Orange = attention, Rouge = urgent, appliqué partout. |
 
 ## Technologies
@@ -96,12 +96,12 @@ Les statuts sont définis dans [`Entities.kt`](app/src/main/java/com/example/dat
 
 1. Installer l’APK debug sur téléphone réel
 2. Configurer l’URL de production dans Paramètres si besoin
-3. S’inscrire avec téléphone (ex: 6XXXXXXXX) + username + password + commune + code commune (ex: CM-BFS-02)
+3. S’inscrire avec téléphone (ex: 6XXXXXXXX) + username + password + commune choisie dans la liste officielle (ou code saisi manuellement, ex: CM-001)
 4. Vérifier token stocké (affiché dans login et settings)
 5. Créer un scan (photo feuille) → vérifier PENDING dans historique
 6. Activer réseau → observer passage SYNCED (logcat: ScanSyncWorker)
 7. Vérifier dans BDD backend : `SELECT * FROM scans WHERE user_id = X ORDER BY received_at DESC`
-8. Tester alertes : `GET /alerts?commune_code=CM-BFS-02` et écran Alertes dans l’app
+8. Tester alertes : `GET /api/alerts?commune_code=CM-001` et écran Alertes dans l’app
 
 ## Authentification JWT de bout en bout
 
@@ -125,20 +125,20 @@ Implémentation :
 
 ## Alertes de commune
 
-Le backend expose `GET /alerts` avec filtres :
+Le backend expose `GET /api/alerts` avec filtres :
 ```
-GET /alerts?commune=Bafoussam%20II
-GET /alerts?commune_code=CM-BFS-02
-GET /alerts?pathology_id=4
-GET /alerts?crop_name=Maïs
-GET /alerts?start_date=2026-09-01T00:00:00&end_date=2026-09-13T23:59:59
+GET /api/alerts?commune=Bafoussam%20II
+GET /api/alerts?commune_code=CM-001
+GET /api/alerts?pathology_id=4
+GET /api/alerts?crop_name=Maïs
+GET /api/alerts?start_date=2026-09-01T00:00:00&end_date=2026-09-13T23:59:59
 ```
 
 L’app :
 - Récupère le code commune depuis le profil (`UserEntity.communeCode`) ou `TokenManager`
 - Appelle `viewModel.fetchBackendAlerts(communeCode)` au lancement de l’écran Alertes
 - Affiche un bandeau "Backend Alerts (commune)" avec comptage backend vs local
-- Bouton refresh pour recharger `GET /alerts?commune_code=...`
+- Bouton refresh pour recharger `GET /api/alerts?commune_code=...`
 - Fusion locale (3 cas / 7j / 10km) + backend dans `activeAlerts`
 
 Voir [`AlertScreen.kt`](app/src/main/java/com/example/ui/screens/AlertScreen.kt) et [`MainViewModel.kt`](app/src/main/java/com/example/ui/MainViewModel.kt).
@@ -184,7 +184,7 @@ GET /api/pathologies
 POST /api/scans/diagnose (multipart image)
 POST /api/scans (JSON avec JWT)
 GET /api/scans
-GET /alerts?commune_code=CM-BFS-02
+GET /api/alerts?commune_code=CM-001
 ```
 
 Le test du diagnostic online doit vérifier simultanément :

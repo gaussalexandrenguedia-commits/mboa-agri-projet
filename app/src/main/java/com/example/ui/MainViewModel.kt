@@ -5,6 +5,8 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.api.ApiClient
+import com.example.api.CommuneDirectory
+import com.example.api.CommuneResponse
 import com.example.api.Content
 import com.example.api.Part
 import com.example.api.TokenManager
@@ -47,7 +49,17 @@ data class BackendAlertUi(
     val alertLevel: String,
     val createdAt: String,
     val communeCode: String? = null
-)
+) {
+    val isHigh: Boolean
+        get() = alertLevel.trim().uppercase() in setOf("HIGH", "ALERTE", "URGENT", "ROUGE", "CRITIQUE")
+
+    fun label(isEnglish: Boolean): String = when (alertLevel.trim().uppercase()) {
+        "HIGH", "ALERTE", "URGENT", "ROUGE", "CRITIQUE" -> if (isEnglish) "Outbreak" else "Alerte"
+        "MEDIUM", "ATTENTION", "ORANGE" -> if (isEnglish) "Watch" else "Attention"
+        "LOW", "INFO", "VERT" -> if (isEnglish) "Info" else "Info"
+        else -> alertLevel
+    }
+}
 
 data class WeatherInfo(
     val temperature: Double,
@@ -86,7 +98,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         .map { scans -> detectAlerts(scans) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Alertes backend (GET /alerts?commune_code=...)
+    // Alertes backend (GET /api/alerts?commune_code=...)
     private val _backendAlerts = MutableStateFlow<List<BackendAlertUi>>(emptyList())
     val backendAlerts: StateFlow<List<BackendAlertUi>> = _backendAlerts
 
@@ -99,7 +111,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 latitude = currentLatitude.value,
                 longitude = currentLongitude.value,
                 casesCount = b.scanCount,
-                message = "Alerte backend: ${b.scanCount} cas, niveau ${b.alertLevel}, commune ${b.communeId}",
+                message = "Alerte backend : ${b.scanCount} cas, niveau ${b.label(false)}, commune ${b.communeCode ?: b.communeId}",
                 timestamp = System.currentTimeMillis(),
                 source = "BACKEND"
             )
@@ -160,7 +172,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 ApiClient.init(appContext)
                 ApiClient.rebuild()
-                val code = communeCode ?: tokenManager.getCommuneCode() ?: currentProfile.value?.communeCode?.takeIf { it.isNotBlank() }
+                // Ne transmettre qu'un code officiel (liste GET /api/communes)
+                val profile = currentProfile.value
+                val code = CommuneDirectory.resolveCode(
+                    context = appContext,
+                    communeName = profile?.commune,
+                    explicitCode = communeCode
+                        ?: profile?.communeCode?.takeIf { it.isNotBlank() }
+                        ?: tokenManager.getCommuneCode()
+                )
                 val alerts = ApiClient.service.getAlerts(
                     communeCode = code,
                     cropName = cropName
@@ -205,8 +225,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             userDao.updateProfile(username, commune, cultures, langue, consentementAlertes)
             userDao.getUserByUsername(username)?.let { user ->
                 currentProfile.value = user
-                // Tenter de mapper la commune vers un code stable
-                val code = mapCommuneToCode(commune)
+                // Résoudre la commune vers un code officiel (GET /api/communes)
+                val code = resolveCommuneCode(commune)
                 if (code != null) {
                     tokenManager.saveCommuneCode(code)
                     userDao.updateProfileWithCode(username, commune, code, cultures, langue, consentementAlertes)
@@ -230,6 +250,45 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Profil agricole de l'utilisateur connecté (commune, cultures, langue, consentement). */
     val currentProfile = MutableStateFlow<UserEntity?>(null)
+
+    // --- Communes officielles (GET /api/communes, contrat mobile) ---
+    private val _officialCommunes = MutableStateFlow<List<CommuneResponse>>(emptyList())
+    val officialCommunes: StateFlow<List<CommuneResponse>> = _officialCommunes
+
+    val isLoadingCommunes = MutableStateFlow(false)
+
+    /**
+     * Charge la liste officielle des communes actives depuis le backend.
+     * Nécessite un JWT (la route /api/communes est protégée). En cas d'absence de token
+     * ou de réseau, on garde le cache local et l'interface propose la saisie manuelle.
+     */
+    fun loadOfficialCommunes(force: Boolean = false) {
+        viewModelScope.launch(Dispatchers.IO) {
+            isLoadingCommunes.value = true
+            try {
+                _officialCommunes.value = CommuneDirectory.cached(appContext)
+                if (tokenManager.hasToken()) {
+                    _officialCommunes.value = CommuneDirectory.refresh(appContext, force)
+                }
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Échec du chargement des communes: ${e.message}", e)
+            } finally {
+                isLoadingCommunes.value = false
+            }
+        }
+    }
+
+    /**
+     * Code commune à envoyer au backend : uniquement un code présent dans la liste
+     * officielle. Si le cache est vide (premier lancement hors ligne), on retombe sur
+     * la table locale, sinon on renvoie null (champ facultatif du contrat).
+     */
+    fun resolveCommuneCode(communeName: String?, fallbackCode: String? = null): String? =
+        CommuneDirectory.resolveCode(
+            context = appContext,
+            communeName = communeName,
+            explicitCode = fallbackCode
+        ) ?: if (CommuneDirectory.isCacheEmpty(appContext)) mapCommuneToCode(communeName) else null
 
     fun loadCurrentUserProfile() {
         val username = currentUser.value ?: return
@@ -275,6 +334,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 currentUser.value = savedUsername
                 loadCurrentUserProfile()
             }
+            // Liste officielle des communes (cache local + rafraîchissement si JWT)
+            loadOfficialCommunes()
         }
         viewModelScope.launch {
             allScans.first()
@@ -692,7 +753,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val hash = hashPassword(passwordRaw)
                 val sdf = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale.FRANCE)
                 val dateStr = sdf.format(java.util.Date())
-                val resolvedCode = communeCode.ifBlank { mapCommuneToCode(commune) ?: "" }
+                val resolvedCode = (resolveCommuneCode(commune, communeCode) ?: communeCode.trim())
 
                 // 1. Sauvegarde locale d'abord (offline-first)
                 userDao.insertUser(
@@ -735,6 +796,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     tokenManager.saveCommuneCode(resolvedCode)
                     userDao.updateBackendInfo(username, backendId, token)
                     Log.i("MainViewModel", "Backend register OK: user ${userResp.id}, token saved")
+                    loadOfficialCommunes(force = true)
                 } catch (e: Exception) {
                     Log.w("MainViewModel", "Backend register failed (offline mode): ${e.message}")
                     // On reste en mode local, le token sera récupéré au login
@@ -778,6 +840,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     }
                     backendOk = true
                     Log.i("MainViewModel", "Backend login OK, token saved")
+                    // La liste des communes exige un JWT : on la récupère juste après le login
+                    loadOfficialCommunes(force = true)
                 }
             } catch (e: Exception) {
                 Log.w("MainViewModel", "Backend login failed, fallback local: ${e.message}")
@@ -814,7 +878,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Mapping commune -> code stable (à compléter avec les vrais codes de Martial)
+    // Table de secours (hors ligne, avant chargement de GET /api/communes).
+    // Les codes officiels restent prioritaires : voir CommuneDirectory.resolveCode.
     private fun mapCommuneToCode(communeName: String?): String? {
         if (communeName.isNullOrBlank()) return null
         return when (communeName.trim().lowercase()) {

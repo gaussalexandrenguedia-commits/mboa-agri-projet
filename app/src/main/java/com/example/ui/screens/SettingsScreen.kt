@@ -11,7 +11,6 @@ import androidx.compose.material.icons.filled.Agriculture
 import androidx.compose.material.icons.filled.Grass
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
@@ -42,6 +41,8 @@ fun SettingsScreen(
     val isEnglish by viewModel.currentLanguageIsEnglish.collectAsState()
     val isExpert by viewModel.currentAiModeExpert.collectAsState()
     val profile by viewModel.currentProfile.collectAsState()
+    val officialCommunes by viewModel.officialCommunes.collectAsState()
+    val isLoadingCommunes by viewModel.isLoadingCommunes.collectAsState()
 
     var commune by remember { mutableStateOf("") }
     var communeCode by remember { mutableStateOf("") }
@@ -58,6 +59,7 @@ fun SettingsScreen(
 
     LaunchedEffect(Unit) {
         viewModel.loadCurrentUserProfile()
+        viewModel.loadOfficialCommunes()
         val tm = TokenManager.getInstance(context)
         tokenInfo = if (tm.hasToken()) {
             "JWT présent (user: ${tm.getUsername()}, phone: ${tm.getPhone()}, commune_code: ${tm.getCommuneCode()})"
@@ -205,38 +207,19 @@ fun SettingsScreen(
                 title = t("profile_section"),
                 icon = Icons.Default.Agriculture
             ) {
-                OutlinedTextField(
-                    value = commune,
-                    onValueChange = { commune = it },
-                    label = { Text(t("commune")) },
-                    placeholder = { Text(t("commune_hint"), fontSize = 13.sp) },
-                    prefix = {
-                        Icon(
-                            imageVector = Icons.Default.LocationOn,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(end = 6.dp)
-                        )
+                CommunePickerField(
+                    communes = officialCommunes,
+                    communeName = commune,
+                    communeCode = communeCode,
+                    isEnglish = isEnglish,
+                    isLoading = isLoadingCommunes,
+                    onSelect = { selected ->
+                        commune = selected.name
+                        communeCode = selected.code
                     },
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("settings_commune_input"),
-                    singleLine = true
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                OutlinedTextField(
-                    value = communeCode,
-                    onValueChange = { communeCode = it.uppercase() },
-                    label = { Text(if (isEnglish) "Commune code (e.g. CM-BFS-02)" else "Code commune (ex: CM-BFS-02)") },
-                    placeholder = { Text("CM-BFS-02", fontSize = 13.sp) },
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("settings_commune_code_input"),
-                    singleLine = true
+                    onRefresh = { viewModel.loadOfficialCommunes(force = true) },
+                    onManualCodeChange = { communeCode = it },
+                    testTagPrefix = "settings_commune"
                 )
 
                 Spacer(modifier = Modifier.height(10.dp))

@@ -46,6 +46,25 @@ data class TokenResponse(
     @Json(name = "token_type") val tokenType: String = "bearer"
 )
 
+/** Commune renvoyée par GET /api/communes (contrat mobile officiel). */
+@JsonClass(generateAdapter = true)
+data class CommuneResponse(
+    val id: Int,
+    val code: String,
+    val name: String,
+    @Json(name = "postal_code") val postalCode: String? = null,
+    @Json(name = "is_active") val isActive: Boolean = true
+)
+
+@JsonClass(generateAdapter = true)
+data class CommunePageResponse(
+    val items: List<CommuneResponse> = emptyList(),
+    val total: Int = 0,
+    val page: Int = 1,
+    @Json(name = "page_size") val pageSize: Int = 20,
+    val pages: Int = 1
+)
+
 @JsonClass(generateAdapter = true)
 data class ScanSyncPayload(
     @Json(name = "local_id") val localId: Long,
@@ -147,7 +166,21 @@ data class AlertResponse(
     @Json(name = "scan_count") val scanCount: Int,
     @Json(name = "alert_level") val alertLevel: String,
     @Json(name = "created_at") val createdAt: String
-)
+) {
+    /// Le contrat mobile documente des niveaux en clair : "Alerte", "Attention", "Info"
+    /// (les anciennes valeurs HIGH / MEDIUM / LOW restent tolérées).
+    fun isHighSeverity(): Boolean = when (alertLevel.trim().uppercase()) {
+        "HIGH", "ALERTE", "URGENT", "ROUGE", "CRITIQUE" -> true
+        else -> false
+    }
+
+    fun severityLabel(isEnglish: Boolean): String = when (alertLevel.trim().uppercase()) {
+        "HIGH", "ALERTE", "URGENT", "ROUGE", "CRITIQUE" -> if (isEnglish) "Outbreak" else "Alerte"
+        "MEDIUM", "ATTENTION", "ORANGE" -> if (isEnglish) "Watch" else "Attention"
+        "LOW", "INFO", "VERT" -> if (isEnglish) "Info" else "Info"
+        else -> alertLevel
+    }
+}
 
 @JsonClass(generateAdapter = true)
 data class PathologyResponse(
@@ -211,7 +244,7 @@ interface BackendApiService {
         @Part("longitude") longitude: RequestBody?
     ): DiagnosticResponse
 
-    @GET("alerts")
+    @GET("api/alerts")
     suspend fun getAlerts(
         @Query("commune") commune: String? = null,
         @Query("commune_code") communeCode: String? = null,
@@ -220,6 +253,14 @@ interface BackendApiService {
         @Query("start_date") startDate: String? = null,
         @Query("end_date") endDate: String? = null
     ): List<AlertResponse>
+
+    /** Liste des communes actives : source de vérité pour les codes commune_code. */
+    @GET("api/communes")
+    suspend fun getCommunes(
+        @Query("page") page: Int = 1,
+        @Query("page_size") pageSize: Int = 100,
+        @Query("is_active") isActive: Boolean = true
+    ): CommunePageResponse
 
     @GET("api/pathologies")
     suspend fun getPathologies(

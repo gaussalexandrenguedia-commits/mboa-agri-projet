@@ -12,6 +12,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.example.api.ApiClient
+import com.example.api.CommuneDirectory
 import com.example.api.ScanSyncPayload
 import com.example.api.TokenManager
 import com.example.data.AppDatabase
@@ -58,11 +59,22 @@ class ScanSyncWorker(
             return Result.retry()
         }
 
-        // Récupérer le code commune du profil pour enrichir le payload
+        // Code commune : uniquement un code officiel (GET /api/communes).
+        // Un code inventé provoque un 422 côté backend et bloque la synchronisation.
         val lastUser = userDao.getLastUser()
-        val communeCode = lastUser?.communeCode?.takeIf { it.isNotBlank() }
-            ?: tokenManager.getCommuneCode()
-            ?: mapCommuneToCode(lastUser?.commune)
+        CommuneDirectory.refresh(applicationContext, force = false)
+        val communeCode = CommuneDirectory.resolveCode(
+            context = applicationContext,
+            communeName = lastUser?.commune,
+            explicitCode = lastUser?.communeCode?.takeIf { it.isNotBlank() }
+                ?: tokenManager.getCommuneCode()
+        )
+        if (communeCode == null && lastUser?.communeCode?.isNotBlank() == true) {
+            android.util.Log.w(
+                "ScanSyncWorker",
+                "commune_code '${lastUser.communeCode}' absent de la liste officielle : envoyé à null"
+            )
+        }
 
         var failed = false
         pending.forEach { scan ->
@@ -82,17 +94,30 @@ class ScanSyncWorker(
                     communeCode = communeCode
                 )
                 val response = ApiClient.service.uploadScan(payload)
-                // Idempotence backend : si already_synced, on considère comme succès
+                // Idempotence backend : 200 + already_synced signifie que le serveur possède déjà
+                // ce local_id ; on marque le scan comme synchronisé localement (contrat §3.1).
                 android.util.Log.i("ScanSyncWorker", "Scan ${scan.id} sync status: ${response.syncStatus} -> ${response.message}")
                 dao.updateSyncStatus(scan.id, SyncStatus.SYNCED)
+            } catch (e: retrofit2.HttpException) {
+                val code = e.code()
+                val body = runCatching { e.response()?.errorBody()?.string() }.getOrNull()
+                android.util.Log.e("ScanSyncWorker", "Sync HTTP $code pour le scan ${scan.id} : $body", e)
+                dao.updateSyncStatus(scan.id, SyncStatus.FAILED)
+                when (code) {
+                    // 401/403 : token absent, invalide ou compte désactivé -> attendre une reconnexion
+                    401, 403 -> {
+                        android.util.Log.w("ScanSyncWorker", "JWT refusé : reconnexion nécessaire")
+                        return Result.retry()
+                    }
+                    // 422 : payload refusé (ex. code commune inconnu) -> ne sert à rien de rejouer
+                    413, 415, 422 -> android.util.Log.w(
+                        "ScanSyncWorker",
+                        "Scan ${scan.id} refusé par le backend (données invalides), nouveau scan nécessaire"
+                    )
+                    else -> failed = true
+                }
             } catch (e: Exception) {
                 android.util.Log.e("ScanSyncWorker", "Sync failed for scan ${scan.id}: ${e.message}", e)
-                // Si 401, token invalide -> ne pas retry indéfiniment, marquer FAILED
-                val isAuthError = e.message?.contains("401") == true || e.message?.contains("Authentification") == true
-                if (isAuthError) {
-                    // Optionnel : clear token pour forcer re-login
-                    // tokenManager.clearToken()
-                }
                 dao.updateSyncStatus(scan.id, SyncStatus.FAILED)
                 failed = true
             }
@@ -100,21 +125,6 @@ class ScanSyncWorker(
         return if (failed) Result.retry() else Result.success()
     }
 
-    private fun mapCommuneToCode(communeName: String?): String? {
-        if (communeName.isNullOrBlank()) return null
-        // Mapping des communes principales du projet MBOA AGRI
-        // À enrichir avec les vrais codes fournis par Martial (table communes.code)
-        return when (communeName.trim().lowercase()) {
-            "bafoussam ii", "bafoussam 2" -> "CM-BFS-02"
-            "bafoussam i", "bafoussam 1" -> "CM-BFS-01"
-            "foumbot" -> "CM-FBT-01"
-            "dschang" -> "CM-DSC-01"
-            "bamenda" -> "CM-BMD-01"
-            "yaounde", "yaoundé" -> "CM-YDE-01"
-            "douala" -> "CM-DLA-01"
-            else -> null // Laisser null si non mappé, backend accepte
-        }
-    }
 }
 
 private fun networkConstraints(): Constraints =
