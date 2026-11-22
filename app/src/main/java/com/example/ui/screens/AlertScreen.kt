@@ -295,7 +295,7 @@ fun ActiveAlertsTab(
                             color = MaterialTheme.colorScheme.primary
                         )
                         Text(
-                            text = if (isEnglish) "GET /alerts?commune_code=..." else "GET /alerts?commune_code=... (filtrage territorial)",
+                            text = if (isEnglish) "GET /api/alerts?commune_code=..." else "GET /api/alerts?commune_code=... (filtrage territorial)",
                             fontSize = 10.sp,
                             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                         )

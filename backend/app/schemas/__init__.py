@@ -2,6 +2,12 @@ from app.schemas.auth import LoginRequest, RegisterRequest, UserResponse, TokenR
 from app.schemas.scan import ScanCreateRequest, ScanResponse
 from app.schemas.diagnostic import DiagnosticResponse
 from app.schemas.alert import AlertCreateRequest, AlertResponse
+from app.schemas.commune import (
+    CommuneCreateRequest,
+    CommunePageResponse,
+    CommuneResponse,
+    CommuneUpdateRequest,
+)
 
 
 __all__ = ["LoginRequest",
@@ -12,5 +18,9 @@ __all__ = ["LoginRequest",
            "ScanResponse",
            "DiagnosticResponse",
            "AlertResponse",
-           "AlertCreateRequest"
+           "AlertCreateRequest",
+           "CommuneResponse",
+           "CommunePageResponse",
+           "CommuneCreateRequest",
+           "CommuneUpdateRequest",
            ]

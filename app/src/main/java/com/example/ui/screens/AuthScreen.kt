@@ -9,7 +9,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Grass
-import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
@@ -64,6 +63,11 @@ fun AuthScreen(
     var consentementAlertes by remember { mutableStateOf(false) }
 
     val coroutineScope = rememberCoroutineScope()
+
+    // Liste officielle des communes (nécessite un JWT : chargée après connexion)
+    val officialCommunes by viewModel.officialCommunes.collectAsState()
+    val isLoadingCommunes by viewModel.isLoadingCommunes.collectAsState()
+    LaunchedEffect(Unit) { viewModel.loadOfficialCommunes() }
 
     fun t(key: String): String = Translations.translate(key, isEnglish)
 
@@ -229,47 +233,23 @@ fun AuthScreen(
 
                 // ===== Profil agriculteur (uniquement à l'inscription) =====
                 if (isRegisterMode) {
-                    OutlinedTextField(
-                        value = commune,
-                        onValueChange = {
-                            commune = it
+                    CommunePickerField(
+                        communes = officialCommunes,
+                        communeName = commune,
+                        communeCode = communeCode,
+                        isEnglish = isEnglish,
+                        isLoading = isLoadingCommunes,
+                        onSelect = { selected ->
+                            commune = selected.name
+                            communeCode = selected.code
                             errorMessage = ""
-                            successMessage = ""
                         },
-                        label = { Text(t("commune")) },
-                        placeholder = { Text(t("commune_hint"), fontSize = 13.sp) },
-                        prefix = {
-                            Icon(
-                                imageVector = Icons.Default.LocationOn,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(end = 6.dp)
-                            )
-                        },
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("commune_input")
-                            .padding(bottom = 12.dp),
-                        singleLine = true
+                        onRefresh = { viewModel.loadOfficialCommunes(force = true) },
+                        onManualCodeChange = { communeCode = it },
+                        testTagPrefix = "commune"
                     )
 
-                    OutlinedTextField(
-                        value = communeCode,
-                        onValueChange = {
-                            communeCode = it.uppercase()
-                            errorMessage = ""
-                            successMessage = ""
-                        },
-                        label = { Text(if (isEnglish) "Commune code (e.g. CM-BFS-02)" else "Code commune (ex: CM-BFS-02)") },
-                        placeholder = { Text("CM-BFS-02", fontSize = 13.sp) },
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("commune_code_input")
-                            .padding(bottom = 12.dp),
-                        singleLine = true
-                    )
+                    Spacer(modifier = Modifier.height(6.dp))
 
                     OutlinedTextField(
                         value = cultures,

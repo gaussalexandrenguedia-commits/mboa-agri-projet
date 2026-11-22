@@ -21,7 +21,15 @@ class ScanSyncTest(unittest.TestCase):
             "sqlite+pysqlite:///:memory:"
         )
 
-        Base.metadata.create_all(self.engine)
+        # PostGIS (Geometry/Geography) n'existe pas sous SQLite : on ne crée que les
+        # tables utiles à ce test (users, scans), sans les colonnes spatiales.
+        Base.metadata.create_all(
+            self.engine,
+            tables=[
+                User.__table__,
+                Scan.__table__,
+            ],
+        )
 
         self.db = Session(self.engine)
 
